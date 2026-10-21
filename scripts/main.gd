@@ -1,5 +1,7 @@
 extends Node
 
+var input_source: PlayerInput
+var pause_menu: PauseMenu
 var ship: ShipPhysics
 var crew: CrewController
 var station: CrewStation
@@ -17,9 +19,17 @@ var exposure: float = 0.0
 @export var g_effect_response_seconds: float = 3.0
 
 func _ready() -> void:
+ input_source = PlayerInput.new()
+ add_child(input_source)
+ input_source.device_changed.connect(_active_device_changed)
  _space()
  _interior()
  _ui()
+ pause_menu = PauseMenu.new()
+ pause_menu.source = input_source
+ pause_menu.pause_changed.connect(_pause_changed)
+ pause_menu.reset_requested.connect(_reset_ship)
+ add_child(pause_menu)
  Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _box(parent: Node3D, at: Vector3, size: Vector3, color: Color, solid: bool = false) -> MeshInstance3D:
@@ -147,6 +157,7 @@ func _interior() -> void:
  station.position = Vector3(0, 1, -12.5)
  room.add_child(station)
  crew = CrewController.new()
+ crew.input_source = input_source
  crew.position = Vector3(0, 1, -9)
  room.add_child(crew)
 
@@ -176,11 +187,12 @@ func _ui() -> void:
  canvas.add_child(debug_panel)
 
 func _unhandled_input(event: InputEvent) -> void:
- if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not outside:
+ if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and controls_captured and not outside and not input_source.using_gamepad:
   crew.look(event.relative)
- if event.is_action_pressed("ui_cancel"):
+ if event.is_action_pressed("ui_cancel") and not event is InputEventJoypadButton:
   controls_captured = not controls_captured
   Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if controls_captured else Input.MOUSE_MODE_VISIBLE
+  crew.controls_enabled = controls_captured and not outside
  if event.is_action_pressed("interact"):
   if station.occupied:
    station.leave()
@@ -200,18 +212,30 @@ func _unhandled_input(event: InputEvent) -> void:
   _reset_ship()
 
 func _update_view() -> void:
+ crew.controls_enabled = controls_captured and not outside
  interior_view.visible = not station.occupied and not outside
  if outside:
   outside_camera.current = true
  else:
   pilot_camera.current = true
 
+func _active_device_changed(gamepad: bool) -> void:
+ if gamepad and not get_tree().paused:
+  controls_captured = true
+  crew.controls_enabled = not outside
+  Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _pause_changed(_paused: bool) -> void:
+ ship.command.clear()
+ controls_captured = true
+ crew.controls_enabled = not outside
+
 func _reset_ship() -> void:
  ship.reset_requested = true
 
 func _physics_process(_delta: float) -> void:
  if station.occupied and controls_captured:
-  PilotInput.sample(ship.command)
+  PilotInput.sample(ship.command, input_source)
  else:
   ship.command.clear()
 
@@ -223,6 +247,7 @@ func _process(delta: float) -> void:
  (stress_overlay.material as ShaderMaterial).set_shader_parameter("strength", clampf(exposure * g_effect_gain, 0.0, 0.65))
  var local_v := ship.local_velocity()
  var mode := "PILOT / NEWTONIAN — ASSIST OFF" if station.occupied else "CREW / LOCAL ARTIFICIAL GRAVITY"
- hud.text = "DRIFT 0.1 | %s\nSpeed %.2f m/s | local v [%.2f, %.2f, %.2f] m/s\nMain %.0f N | acceleration %.2f m/s² | %.2f g\nSustained load %.2f g | physics tick %d\nE: seat / exit  V: exterior  Esc: mouse  F3: debug  F5: reset\nWalk WASD + mouse | Pilot WASD/Space/Ctrl: RCS, Shift: main\nArrows: pitch/yaw  Q/R: roll | thrust release = coast" % [mode, ship.linear_velocity.length(), local_v.x, local_v.y, local_v.z, ship.applied_main_thrust_n, ship.acceleration_world.length(), g_load, exposure, ship.tick]
+ hud.text = "DRIFT 0.1.1 | %s\nSpeed %.2f m/s | local v [%.2f, %.2f, %.2f] m/s\nMain %.0f N | acceleration %.2f m/s² | %.2f g\nSustained load %.2f g | physics tick %d" % [mode, ship.linear_velocity.length(), local_v.x, local_v.y, local_v.z, ship.applied_main_thrust_n, ship.acceleration_world.length(), g_load, exposure, ship.tick]
+ hud.text += "\n" + input_source.hints(station.occupied)
  if not station.occupied and crew.position.distance_to(station.position) < 3.0:
-  hud.text += "\n[E] Take pilot station"
+  hud.text += "\n[A / Cross] Take pilot station" if input_source.using_gamepad else "\n[E] Take pilot station"

@@ -3,6 +3,8 @@ extends CharacterBody3D
 
 @export var walk_speed: float = 4.0
 @export var artificial_gravity: float = 9.81
+var input_source: PlayerInput
+var controls_enabled: bool = true
 var camera: Camera3D
 var seated: bool = false
 var pitch: float = 0.0
@@ -33,7 +35,14 @@ func _physics_process(delta: float) -> void:
  if seated:
   velocity = Vector3.ZERO
   return
- var input := Input.get_vector("left", "right", "forward", "back")
+ var input := Vector2.ZERO
+ if controls_enabled:
+  input = input_source.movement() if input_source != null else Input.get_vector("left", "right", "forward", "back")
+  if input_source != null:
+   var rate := input_source.camera_rate() * delta
+   rotate_y(-rate.x)
+   pitch = clampf(pitch - rate.y, -1.4, 1.4)
+   camera.rotation.x = pitch
  var direction := basis * Vector3(input.x, 0, input.y)
  velocity.x = direction.x * walk_speed
  velocity.z = direction.z * walk_speed

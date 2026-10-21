@@ -1,7 +1,13 @@
 class_name PilotInput
 extends RefCounted
 
-static func sample(command: FlightCommand) -> void:
+static func sample(command: FlightCommand, source: PlayerInput = null) -> void:
+ if source != null:
+  source.sample_flight(command)
+ else:
+  sample_keyboard(command)
+
+static func sample_keyboard(command: FlightCommand) -> void:
  command.translation = Vector3(
   Input.get_axis("left", "right"),
   Input.get_axis("down", "up"),
