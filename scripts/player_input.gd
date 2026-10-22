@@ -14,6 +14,7 @@ var _wait_pad_neutral: bool = false
 func _ready() -> void:
  process_mode = Node.PROCESS_MODE_ALWAYS
  settings.load_file()
+ settings.apply_advanced_bindings()
  Input.joy_connection_changed.connect(_connection_changed)
 
 func _input(event: InputEvent) -> void:
@@ -96,8 +97,27 @@ func computer_event(event: InputEvent, action: String) -> bool:
   return event.is_action_pressed(bindings[action])
  return event.is_action_pressed(action)
 
+func drift_held() -> bool:
+ return Input.is_action_pressed("pad_drift_cancel") and (settings.drift_modifier < 0 or Input.is_action_pressed("pad_drift_modifier"))
+
+func pad_button_consumed(index: int) -> bool:
+ if index == settings.drift_modifier and Input.is_action_pressed("pad_drift_modifier"):
+  return true
+ if index == settings.retrograde_button and Input.is_action_pressed("pad_retrograde"):
+  return true
+ return drift_held() and index in [settings.drift_button, settings.drift_modifier]
+
+func orbit_held() -> bool:
+ return Input.is_action_pressed("pad_orbit") and not pad_button_consumed(JOY_BUTTON_RIGHT_STICK)
+
+func advanced_consumes(event: InputEvent) -> bool:
+ if not event is InputEventJoypadButton:
+  return false
+ return event.is_action("pad_retrograde") or event.button_index == settings.drift_modifier or pad_button_consumed(event.button_index)
+
 func controller_brake_held() -> bool:
- return Input.is_action_pressed("pad_fc_down" if settings.computer_layout == 0 else "pad_fc_up")
+ var index := JOY_BUTTON_DPAD_DOWN if settings.computer_layout == 0 else JOY_BUTTON_DPAD_UP
+ return Input.is_action_pressed("pad_fc_down" if settings.computer_layout == 0 else "pad_fc_up") and not pad_button_consumed(index)
 
 func sample_flight(command: FlightCommand, delta: float = 1.0 / 60.0) -> void:
  if not using_gamepad:
@@ -118,10 +138,12 @@ func sample_flight(command: FlightCommand, delta: float = 1.0 / 60.0) -> void:
  var pitch := -left.y
  if settings.invert_y:
   pitch = -pitch
- command.rotation = Vector3(pitch, -left.x,
-  Input.get_axis("pad_roll_right", "pad_roll_left")).limit_length()
+ var roll_left := 0.0 if pad_button_consumed(JOY_BUTTON_LEFT_SHOULDER) else Input.get_action_strength("pad_roll_left")
+ var roll_right := 0.0 if pad_button_consumed(JOY_BUTTON_RIGHT_SHOULDER) else Input.get_action_strength("pad_roll_right")
+ command.rotation = Vector3(pitch, -left.x, roll_left - roll_right).limit_length()
  command.translation = Vector3(right.x, -right.y, 0.0 if camera_controls else Input.get_action_strength("pad_reverse")).limit_length()
  command.main_engine = 0.0 if camera_controls else Input.get_action_strength("pad_main")
+ command.drift_cancel = drift_held()
  if controller_brake_held():
   match settings.brake_mode:
    0: command.brake_all = true
@@ -141,4 +163,4 @@ func hints(piloting: bool) -> String:
   return "LS: walk | RS: look | A / Cross: interact | Y / Triangle: camera\nStart / Options: pause and settings"
  if not piloting:
   return "WASD: walk | Mouse: look | F: seat | V: exterior | G: grid | P: pause | Esc: mouse"
- return "F: seat | V: exterior | P: pause/settings | Esc: mouse | F5: reset\nMouse: pitch/yaw | WASD + Space/Shift: RCS | Q/E: roll | LMB: main\nX: brake | Ctrl+W/A/Space/R: axis/roll brake | T: rate assist | H: hold | G: grid"
+ return "F: seat | V: exterior | P: pause/settings | Esc: mouse | F5: reset\nMouse: pitch/yaw | WASD + Space/Shift: RCS | Q/E: roll | LMB: main\nX: brake | Ctrl+W/A/Space/R: axis/roll brake | T: rate assist | H: hold | G: grid | C: drift | B: retrograde"

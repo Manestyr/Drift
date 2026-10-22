@@ -23,6 +23,14 @@ var reference_name: String = "Arena / inertial rest"
 var progress: float = 0.0
 var eta: float = 0.0
 var brake_budget: float = 1.0
+var drift_active: bool = false
+var drift_vector: Vector3 = Vector3.ZERO
+var drift_eta: float = -1.0
+var retrograde_status: String = "IDLE"
+var retrograde_active: bool = false
+var negative_limits: Vector3 = Vector3.ZERO
+var positive_limits: Vector3 = Vector3.ZERO
+var main_limit: float = 0.0
 
 static func capture(ship: ShipPhysics, state: PhysicsDirectBodyState3D = null) -> ShipTelemetry:
  var data := ShipTelemetry.new()
@@ -36,9 +44,9 @@ static func capture(ship: ShipPhysics, state: PhysicsDirectBodyState3D = null) -
  var omega := ship.angular_velocity if state == null else state.angular_velocity
  data.angular_rate_local = data.orientation.inverse() * omega
  data.main_fraction = ship.applied_main_thrust_n / ship.main_thrust_n
- data.rcs_translation = ship.computer.force_local / ship.rcs_thrust_n
+ data.rcs_translation = FlightComputer.normalized_force(ship.computer.force_local, ship.negative_force_limits, ship.positive_force_limits)
  data.rcs_rotation = ship.computer.torque_local / ship.torque_limits_nm
- data.auto_translation = data.rcs_translation - ship.command.translation.limit_length()
+ data.auto_translation = FlightComputer.normalized_force(ship.computer.automatic_force_local, ship.negative_force_limits, ship.positive_force_limits)
  data.auto_rotation = data.rcs_rotation - ship.command.rotation.limit_length()
  data.stabilization = ship.computer.rotation_stabilization
  data.hold = ship.computer.attitude_hold
@@ -48,6 +56,14 @@ static func capture(ship: ShipPhysics, state: PhysicsDirectBodyState3D = null) -
  data.progress = ship.computer.brake_progress
  data.eta = ship.computer.brake_eta
  data.brake_budget = ship.computer.brake_force_fraction
+ data.drift_active = ship.computer.drift_active
+ data.drift_vector = ship.computer.drift_vector
+ data.drift_eta = ship.computer.drift_eta
+ data.retrograde_status = ship.computer.retrograde_status
+ data.retrograde_active = ship.computer.retrograde_active
+ data.negative_limits = ship.negative_force_limits
+ data.positive_limits = ship.positive_force_limits
+ data.main_limit = ship.main_thrust_n
  return data
 
 func navigation_velocity(inertial: bool) -> Vector3:

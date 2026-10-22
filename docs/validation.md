@@ -84,3 +84,31 @@ Headless projection explicitly sets a 1280×720 root window (the default headles
 All four corners of every panel fit the unchanged pilot camera frustum. Texture resolution is 512×448 per screen. Main 24-pixel typography is approximately 16 screen pixels high on the center panel, slightly varying with perspective. The virtual rendered check verified front-face/texture orientation, all numeric values, frame placement and lack of a startup text wall. Initial rendering exposed an old sill occluding footers and navigation readouts drawn beneath the background; both were corrected before the final captures. A headless projection-fixture size issue and a typed test-variable parse error were also fixed, without weakening assertions.
 
 **Not performed:** interactive human desktop playtest, physical Xbox/PlayStation input test, native GPU/frame-rate benchmark or other resolutions/platforms. This milestone has a real virtual-display visual check in addition to headless testing; it does not claim a new human hardware acceptance test. The screenshots' drift state is explicit capture-fixture setup, not production physics code.
+
+## Milestone 0.1.4 — advanced dynamics, 2026-10-22
+
+Base: completed, published **0acfdf7** / `feature/milestone-0.1.3-cockpit-instruments`; no unfinished intermediate branch was integrated. Engine remains **Godot 4.7.stable.official.5b4e0cb0f**, 60-Hz actual physics integration.
+
+- Import and 120-frame headless main-scene start pass.
+- All **171 previous checks pass without modifying their test files**.
+- **57 new checks pass**: default/held/released drift, real C and controller chords, rebind persistence and stale-state clearing, all signed thrust forces/accelerations, main-plus-forward aggregate cap, shared asymmetric allocation/manual priority, neutral turn/coast invariance, no longitudinal drift correction, continuously updated local frame, bounded 90° maneuver, autonomous retrograde and settling, no automatic burn, low-speed inhibition before/during a maneuver, manual cancellation, relative-frame changes, roll continuity and cockpit snapshots. GUI button rebinding and overlapping-seat-button priority/fallback exit are covered.
+- Total: **228 passed, 0 failed, 0 skipped**. Run `GODOT_BIN=/workspace/tools/godot-4.7/Godot_v4.7-stable_linux.x86_64 ./tools/check.sh`.
+- Production movement uses only fixed-tick forces/torques; pose/velocity writes are restricted to the pre-existing explicit reset. Maneuver test fixture initialization and screenshot fixtures are identified separately. No simulation-state write was added to instrument UI.
+
+### 90° turn and commanded cross-drift cancellation
+
+Initial world velocity `(0, 0, -40) m/s`, zero angular velocity, arena inertial frame. A repeatable test requests a 90° yaw attitude target through the existing PD controller. This is a measurement fixture, not a new automatic 90° UI command. **C is not active during the turn**. It reaches <0.5° error / <0.5°/s in **6.6833 simulated seconds**, retaining its original world velocity within 0.001 m/s.
+
+Then held Drift Cancel and full manual main thrust are requested together. Initial local cross-drift **39.9985 m/s** falls below 0.05 m/s in **7.2500 s**, while the main engine accelerates along the new nose direction. Final local velocity: **(0.049181, 0, -144.8874) m/s**. Maximum physical per-tick velocity change **0.372681 m/s**, matching combined ~22.36 m/s² main/lateral acceleration at 60 Hz. The drift controller's local Z force remains exactly zero. Total staged turn plus drift removal is **13.9333 s**, not 7.25 s. No instantaneous velocity rotation, speed reset or teleport is used.
+
+### Autonomous 180° retrograde
+
+Initial world velocity `(0, 0, -30) m/s`, zero angular rate, arena frame. The test calls only the public retrograde request, without injecting an attitude target. Completion occurs after **7.9833 simulated seconds**: **0.32746°** forward-direction error, **0.13750°/s** angular speed. Peak angular speed **60.1632°/s**. Maximum per-tick angular-speed change **0.00666672 rad/s**, consistent with unchanged 0.4 rad/s² torque authority at 60 Hz.
+
+Completion requires <0.5° target attitude error and <0.5°/s for 0.5 consecutive simulated seconds. Subsequent ticks continue the existing attitude-hold settling. World velocity remains unchanged within 0.001 m/s; main thrust and automatic translation force remain zero during and after completion. Tests additionally change the inertial reference while active and after completion: active targeting updates, but a finished maneuver does not silently restart. Near-zero speed and intentional manual rotation cancel safely.
+
+### Rendering and remaining limitations
+
+Three actual **1280×720** captures were rendered with Xvfb and Godot OpenGL Compatibility, **Mesa 25.0.7 / llvmpipe**, and inspected: `advanced-drift.png`, `advanced-retrograde.png`, `advanced-bindings.png`. They show held-drift status/ETA with main thrust, retrograde RCS activity without main thrust, and the controller binding menu. Audio used Dummy; Xvfb's unsupported-VSync warning is expected. These are renderer output from explicit fixtures, not image mockups or evidence of human piloting.
+
+No interactive desktop/controller-hardware test, native-GPU performance measurement, fuel simulation or real thruster-layout verification was performed. The 50%/60% translation ratings are gameplay configuration. An initial typed test-local parse error was corrected; no tests were skipped or assertions disabled. Previous 0.1.2 maneuver figures use a looser settling criterion; the new retrograde completion time includes the stricter completion window, so it should not be compared as an unexplained physics regression.

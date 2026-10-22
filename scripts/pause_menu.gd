@@ -4,6 +4,9 @@ extends CanvasLayer
 signal pause_changed(paused: bool)
 signal reset_requested
 var save_settings_on_close: bool = true
+signal camera_requested
+signal leave_station_requested
+var advanced_panel: PanelContainer
 var instruments: CockpitInstruments
 var computer: FlightComputer
 var computer_panel: PanelContainer
@@ -20,7 +23,7 @@ func _ready() -> void:
  process_mode = Node.PROCESS_MODE_ALWAYS
  layer = 10
  panel = PanelContainer.new()
- panel.position = Vector2(340, 150)
+ panel.position = Vector2(340, 105)
  panel.custom_minimum_size = Vector2(600, 410)
  add_child(panel)
  var rows := VBoxContainer.new()
@@ -56,6 +59,14 @@ func _ready() -> void:
  rows.add_child(flight_button)
  _slider(rows, "Mouse flight sensitivity", 0.25, 2.0, 0.05, source.settings.mouse_flight_sensitivity,
   func(value: float) -> void: source.settings.mouse_flight_sensitivity = value)
+ var advanced_button := Button.new()
+ advanced_button.text = "Advanced flight / Controller bindings"
+ advanced_button.pressed.connect(func() -> void:
+  panel.hide()
+  advanced_panel.show()
+  advanced_panel.find_next_valid_focus().grab_focus())
+ rows.add_child(advanced_button)
+ _build_advanced_panel()
  _build_computer_panel()
  status = Label.new()
  status.text = "D-pad / arrows: navigate + adjust | A / Cross / Enter: select\nStart / Options / P / B / Circle: resume | settings saved on resume"
@@ -89,7 +100,8 @@ func _slider(rows: VBoxContainer, title: String, minimum: float, maximum: float,
 func _input(event: InputEvent) -> void:
  if event.is_action_pressed("pause") or (get_tree().paused and event.is_action_pressed("ui_cancel")):
   source.observe(event)
-  if computer_panel.visible and event.is_action_pressed("ui_cancel"):
+  if (computer_panel.visible or advanced_panel.visible) and event.is_action_pressed("ui_cancel"):
+   advanced_panel.hide()
    computer_panel.hide()
    panel.show()
    resume.grab_focus()
@@ -101,6 +113,7 @@ func set_paused(value: bool) -> void:
  get_tree().paused = value
  panel.visible = value
  computer_panel.hide()
+ advanced_panel.hide()
  Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if value else Input.MOUSE_MODE_CAPTURED
  if value:
   resume.grab_focus()
@@ -186,3 +199,68 @@ func cycle_reference() -> void:
  var next := 1 - reference.selected
  reference.select(next)
  _select_reference(next)
+
+func _build_advanced_panel() -> void:
+ advanced_panel = PanelContainer.new()
+ advanced_panel.position = Vector2(310, 100)
+ advanced_panel.custom_minimum_size = Vector2(660, 480)
+ add_child(advanced_panel)
+ var rows := VBoxContainer.new()
+ rows.add_theme_constant_override("separation", 12)
+ advanced_panel.add_child(rows)
+ var title := Label.new()
+ title.text = "ADVANCED FLIGHT — held drift / retrograde"
+ rows.add_child(title)
+ var info := Label.new()
+ info.text = "C: hold Drift Cancel | B: retrograde (no auto burn)\nBindings override overlapping gameplay buttons while active."
+ rows.add_child(info)
+ var indices: Array[int] = []
+ var names: Array[String] = []
+ var labels := ["A / Cross", "B / Circle", "X / Square", "Y / Triangle", "Back / Share", "Guide", "Start", "LS click", "RS click", "LB / L1", "RB / R1", "D-pad Up", "D-pad Down", "D-pad Left", "D-pad Right", "Misc", "Paddle 1", "Paddle 2", "Paddle 3", "Paddle 4", "Touchpad"]
+ for i in range(JOY_BUTTON_MAX):
+  if i in [JOY_BUTTON_GUIDE, JOY_BUTTON_START]:
+   continue
+  indices.append(i)
+  names.append(labels[i] if i < labels.size() else "Button " + str(i))
+ var drift := _choice(rows, "Hold Drift Cancel button", names, indices.find(source.settings.drift_button), func(_value: int) -> void: pass)
+ var modifier_names: Array = ["None"] + names
+ var modifier_indices: Array = [-1] + indices
+ var modifier := _choice(rows, "Optional chord modifier (must also be held)", modifier_names, modifier_indices.find(source.settings.drift_modifier), func(_value: int) -> void: pass)
+ var retro := _choice(rows, "Retrograde command button", names, indices.find(source.settings.retrograde_button), func(_value: int) -> void: pass)
+ drift.item_selected.connect(func(value: int) -> void:
+  if indices[value] == source.settings.retrograde_button:
+   info.text = "Choose different Drift and Retrograde buttons."
+   drift.select(indices.find(source.settings.drift_button))
+  else:
+   source.settings.drift_button = indices[value]
+   source.settings.apply_advanced_bindings())
+ modifier.item_selected.connect(func(value: int) -> void:
+  if modifier_indices[value] == source.settings.retrograde_button:
+   info.text = "Modifier cannot also trigger Retrograde."
+   modifier.select(modifier_indices.find(source.settings.drift_modifier))
+  else:
+   source.settings.drift_modifier = modifier_indices[value]
+   source.settings.apply_advanced_bindings())
+ retro.item_selected.connect(func(value: int) -> void:
+  if indices[value] in [source.settings.drift_button, source.settings.drift_modifier]:
+   info.text = "Choose a separate Retrograde button."
+   retro.select(indices.find(source.settings.retrograde_button))
+  else:
+   source.settings.retrograde_button = indices[value]
+   source.settings.apply_advanced_bindings())
+ var camera_button := Button.new()
+ camera_button.text = "Toggle exterior camera (fallback after rebinding Y)"
+ camera_button.pressed.connect(func() -> void: camera_requested.emit(); set_paused(false))
+ rows.add_child(camera_button)
+ var leave := Button.new()
+ leave.text = "Leave pilot seat (also available with rebound A)"
+ leave.pressed.connect(func() -> void: leave_station_requested.emit(); set_paused(false))
+ rows.add_child(leave)
+ var back := Button.new()
+ back.text = "Back"
+ back.pressed.connect(func() -> void:
+  advanced_panel.hide()
+  panel.show()
+  resume.grab_focus())
+ rows.add_child(back)
+ advanced_panel.hide()

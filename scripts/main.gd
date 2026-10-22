@@ -36,6 +36,8 @@ func _ready() -> void:
  pause_menu.instruments = instruments
  pause_menu.pause_changed.connect(_pause_changed)
  pause_menu.reset_requested.connect(_reset_ship)
+ pause_menu.leave_station_requested.connect(_leave_pilot)
+ pause_menu.camera_requested.connect(_toggle_exterior)
  pause_menu.attitude_capture_requested.connect(func() -> void: ship.computer.capture_attitude(ship.global_basis))
  add_child(pause_menu)
  Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -213,14 +215,14 @@ func _unhandled_input(event: InputEvent) -> void:
   controls_captured = not controls_captured
   Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if controls_captured else Input.MOUSE_MODE_VISIBLE
   crew.controls_enabled = controls_captured and not outside
+ if station.occupied and (event.is_action_pressed("retrograde") or (event is InputEventJoypadButton and event.is_action_pressed("pad_retrograde"))):
+  ship.computer.request_retrograde()
+ if station.occupied and input_source.advanced_consumes(event):
+  return
  if event.is_action_pressed("interact"):
   input_source.clear_mouse()
   if station.occupied:
-   station.leave()
-   crew.seated = false
-   crew.position = Vector3(0, 1, -12)
-   ship.command.clear()
-   outside = false
+   _leave_pilot()
   elif crew.position.distance_to(station.position) < 3.0 and not outside:
    crew.seated = station.enter()
   _update_view()
@@ -230,6 +232,7 @@ func _unhandled_input(event: InputEvent) -> void:
   if input_source.computer_event(event, "stabilize"):
    ship.computer.rotation_stabilization = not ship.computer.rotation_stabilization
   if input_source.computer_event(event, "hold_attitude"):
+   ship.computer.cancel_retrograde("CANCELLED / HOLD")
    if ship.computer.attitude_hold:
     ship.computer.attitude_hold = false
    else:
@@ -241,9 +244,7 @@ func _unhandled_input(event: InputEvent) -> void:
  if outside and event.is_action_pressed("zoom_out"):
   orbit.zoom(0.15)
  if event.is_action_pressed("exterior"):
-  input_source.clear_mouse()
-  outside = not outside
-  _update_view()
+  _toggle_exterior()
  if event.is_action_pressed("instrument_frame"):
   instruments.navigation.inertial_frame = not instruments.navigation.inertial_frame
  if event.is_action_pressed("debug"):
@@ -251,6 +252,22 @@ func _unhandled_input(event: InputEvent) -> void:
   hud.visible = debug_panel.visible
  if event.is_action_pressed("reset"):
   _reset_ship()
+
+func _toggle_exterior() -> void:
+ input_source.clear_mouse()
+ outside = not outside
+ _update_view()
+
+func _leave_pilot() -> void:
+ if not station.occupied:
+  return
+ station.leave()
+ crew.seated = false
+ crew.position = Vector3(0, 1, -12)
+ ship.command.clear()
+ ship.computer.cancel_retrograde("CANCELLED / STATION")
+ outside = false
+ _update_view()
 
 func _update_view() -> void:
  crew.controls_enabled = controls_captured and not outside
@@ -277,7 +294,7 @@ func _reset_ship() -> void:
  ship.reset_requested = true
 
 func _physics_process(delta: float) -> void:
- input_source.set_orbit_mode(outside and Input.is_action_pressed("pad_orbit"))
+ input_source.set_orbit_mode(outside and input_source.orbit_held())
  if station.occupied and controls_captured:
   PilotInput.sample(ship.command, input_source, delta)
  else:
@@ -288,7 +305,7 @@ func _sample_instruments(_tick: int) -> void:
  instruments.refresh(ShipTelemetry.capture(ship, state))
 
 func _process(delta: float) -> void:
- if outside and input_source.using_gamepad and Input.is_action_pressed("pad_orbit"):
+ if outside and input_source.using_gamepad and input_source.orbit_held():
   orbit.turn(input_source.camera_rate() * delta)
   orbit.zoom((Input.get_action_strength("pad_reverse") - Input.get_action_strength("pad_main")) * delta)
  orbit.update(outside_camera, ship.position)
@@ -301,13 +318,15 @@ func _process(delta: float) -> void:
  (stress_overlay.material as ShaderMaterial).set_shader_parameter("strength", clampf(exposure * g_effect_gain, 0.0, 0.65))
  var local_v := ship.local_velocity()
  var mode := "PILOT / NEWTONIAN" if station.occupied else "CREW / LOCAL ARTIFICIAL GRAVITY"
- hud.text = "DRIFT 0.1.3 | %s\nSpeed %.2f m/s | local v [%.2f, %.2f, %.2f] m/s\nMain %.0f N | acceleration %.2f m/s² | %.2f g\nSustained load %.2f g | physics tick %d" % [mode, ship.linear_velocity.length(), local_v.x, local_v.y, local_v.z, ship.applied_main_thrust_n, ship.acceleration_world.length(), g_load, exposure, ship.tick]
+ hud.text = "DRIFT 0.1.4 | %s\nSpeed %.2f m/s | local v [%.2f, %.2f, %.2f] m/s\nMain %.0f N | acceleration %.2f m/s² | %.2f g\nSustained load %.2f g | physics tick %d" % [mode, ship.linear_velocity.length(), local_v.x, local_v.y, local_v.z, ship.applied_main_thrust_n, ship.acceleration_world.length(), g_load, exposure, ship.tick]
  var rate := ship.global_basis.inverse() * ship.angular_velocity * (180.0 / PI)
  var fc := ship.computer
  var relative_v := ship.global_basis.inverse() * (ship.linear_velocity - fc.reference_velocity)
  hud.text += "\nP/Y/R [%.1f, %.1f, %.1f] deg/s | relative v [%.1f, %.1f, %.1f] m/s" % [rate.x, rate.y, rate.z, relative_v.x, relative_v.y, relative_v.z]
  hud.text += "\nRate assist %s | Hold %s | Brake axes %s | frame: %s" % [fc.rotation_stabilization, fc.attitude_hold, fc.active_brake_axes, fc.reference_name]
  hud.text += "\nRoll brake %s | brake RCS budget %.0f%% (manual priority)" % [fc.roll_braking, fc.brake_force_fraction * 100.0]
+ hud.text += "\nDRIFT CANCEL %s | local XY %s | drift ETA %.2f s | RETRO %s" % [fc.drift_active, fc.drift_vector, fc.drift_eta, fc.retrograde_status]
+ hud.text += "\nTranslation limits -/+ N: %s / %s" % [ship.negative_force_limits, ship.positive_force_limits]
  if fc.active_brake_axes != Vector3.ZERO:
   hud.text += "\nBrake %.0f%% | ETA ~%.1f s to 0.05 m/s (free RCS)" % [fc.brake_progress * 100.0, fc.brake_eta]
  hud.text += "\n" + input_source.hints(station.occupied)

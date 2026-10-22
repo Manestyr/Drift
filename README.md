@@ -1,4 +1,4 @@
-# DRIFT · Milestone 0.1.3
+# DRIFT · Milestone 0.1.4
 
 Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
 
@@ -24,6 +24,8 @@ Zum Überprüfen: W loslassen, V für Außenansicht, G für das Orientierungsgit
 | Lokale Seitwärtskomponente bremsen | **Strg+A** halten |
 | Lokale Vertikalkomponente bremsen | **Strg+Space** halten |
 | Lokale Rollrate bremsen | **Strg+R** halten |
+| Drift Cancel (nur gehalten, X/Y) | **C** |
+| Retrograde ausrichten / laufendes Manöver abbrechen | **B** |
 | Automatische Rotationsstabilisierung an/aus | **T** |
 | Aktuelle Lage halten / lösen | **H** |
 | Inertialen Bremsbezug wechseln | **F7** oder Flugcomputer-Menü |
@@ -47,6 +49,7 @@ Zum Überprüfen: W loslassen, V für Außenansicht, G für das Orientierungsgit
 | Rückwärts-RCS, proportional | LT / L2 |
 | Rollen links / rechts | LB / L1 bzw. RB / R1 |
 | Außenkamera | Y / Dreieck |
+| Drift Cancel / Retrograde, Standard | X / Quadrat **halten** / Back bzw. Share **drücken** |
 | Flugcomputer, Standardlayout | D-Pad: **unten bremsen halten**, **oben Rotation stabilisieren**, **links Lage halten**, **rechts Gitter** |
 | Außenkamera orbitieren / zoomen | **RS-Klick halten** + rechter Stick / Trigger |
 | Pause und Einstellungen | Start / Options |
@@ -59,6 +62,24 @@ Im Pausemenü unter **Flight computer / Controller bindings** sind ein alternati
 Zusätzlich gibt es eine **Maus-Flugempfindlichkeit** von 0,25–2,00 (Standard 1,00) im Haupt-Pausemenü; sie skaliert nur den virtuellen Flugstick, nicht den Crew-Mausblick oder die Außenkamera.
 
 Weitere Einstellungen: radiale Stick-Deadzone **0,15** (0,05–0,40), Empfindlichkeit (0,25–2,00) und Y-Invertierung für Controller-Kamera/Pitch. Trigger haben eine separate Deadzone von 0,05; die Menünavigation eine höhere Betätigungsschwelle. Die letzte bewusste Eingabe wählt Maus/Tastatur oder Gamepad und passende HUD-Hinweise. Sub-Deadzone-Stickdrift, neutrale Trigger und kleine Mausbewegungen stehlen die Quelle nicht. Einstellungen werden beim Fortsetzen in `user://input_settings.cfg` gespeichert. Reset und Beenden sind ohne Tastatur erreichbar.
+
+## Advanced Flight Dynamics
+
+**Drift Cancel ist standardmäßig AUS und kein permanenter Assist.** Nur solange **C** beziehungsweise die konfigurierte Controller-Taste/Kombination gehalten wird, bremst der Flugcomputer die **lokalen X-/Y-Komponenten** der Geschwindigkeit relativ zum gewählten inertialen Referenzrahmen ab. Die lokale Z-Komponente bekommt dadurch **keine** Korrekturkraft. Eine Drehung allein aktiviert nichts; die Weltgeschwindigkeit bleibt dabei unverändert. Die lokalen Komponenten werden bei jeder Drehung pro Physiktick neu berechnet. Nach Loslassen entstehen keine weiteren Drift-Korrekturanforderungen (Reaktion im nächsten 60-Hz-Tick; zuvor integrierte Impulse bleiben natürlich erhalten).
+
+Typisches Kurvenmanöver: in die neue Richtung drehen, **C halten**, gleichzeitig mit linker Maustaste beziehungsweise RT vorwärts beschleunigen. Manueller Schub auf einer X-/Y-Achse unterdrückt die automatische Korrektur auf genau dieser Achse. Die andere Querachse kann weiter geregelt werden, soweit RCS-Leistung verfügbar ist. C fügt nur X/Y hinzu; gleichzeitig ausdrücklich angeforderte X-/Strg-Bremsungen behalten ihre eigenen Achsen, einschließlich Z. Drift-ETA ist eine aktuelle Abschätzung bis 0,05 m/s Querdrift, kein Geschwindigkeits-Snap. Bei manueller Achsenübernahme oder fehlendem Budget erscheint keine scheinpräzise ETA.
+
+**Retrograde (B)** richtet die Hauptschubrichtung entgegen dem tatsächlichen relativen Geschwindigkeitsvektor aus. Ausrichtung und Abbremsen der Winkelgeschwindigkeit erfolgen ausschließlich über die vorhandenen begrenzten Rotationsdüsen. **Kein automatischer Hauptschub**, auch nach Abschluss nicht: Der Pilot entscheidet selbst, wann er brennt. Erneutes B während des Manövers bricht ab. Bewusste manuelle Rotation oder Verlassen des Pilotensitzes bricht ebenfalls ab. Unter **0,5 m/s relativer Geschwindigkeit** wird das Manöver unterdrückt beziehungsweise beendet, statt aus einem undefinierten Vektor ein Ziel zu erzeugen.
+
+Während des Manövers wird der relative Geschwindigkeitsvektor fortlaufend verfolgt. Für den mehrdeutigen Rollwinkel wird die bisherige Hochachse auf die Ebene senkrecht zur Retrograde-Richtung projiziert und von Tick zu Tick fortgeführt. Bei einem anfänglich parallelen Vektor dient eine deterministische Weltachse als Ersatz. Damit wird kein Euler-Rollwinkel willkürlich neu gesetzt. Große sprunghafte Referenzänderungen können ein neues Ziel verlangen; die physische Drehung bleibt begrenzt. Abschluss erfordert **<0,5° Lagefehler und <0,5°/s Restdrehrate für 0,5 s**. Danach hält die Lagehaltung das erreichte Ziel; sie startet bei späteren Referenzänderungen kein neues Retrograde-Manöver. Der Status meldet dann gegebenenfalls `COMPLETE / TARGET CHANGED`. Manuelle Rotation löst die Lagehaltung.
+
+Das Cockpit zeigt **LATERAL ASSIST ON/OFF**, **DRIFT CANCEL ACTIVE**, verbleibende X/Y-Drift, Drift-ETA, Retrograde-Status sowie aktive Rotation und Translationsbremsung. Propulsion zeigt die aktuell verfügbaren negativen/positiven RCS-Achsenkräfte in **MN**; bei vollem Hauptschub beträgt die zusätzliche Vorwärts-RCS-Leistung null. Rotationsdrehmomente bleiben separat und unverändert.
+
+Controller-Bindings lassen sich unter **Pause → Advanced flight / Controller bindings** frei auf gemappte Buttons und einen optionalen gehaltenen Modifier legen. Standard: **X/Quadrat** für Drift, kein Modifier; **Back/Share** für Retrograde. **Start/Options und Guide** bleiben als Menü-/Systemtasten reserviert. Drift und Retrograde müssen verschiedene Tasten haben; der Modifier darf nicht zugleich Retrograde auslösen. Bindings werden gespeichert. Aktive neue Bindings haben Vorrang vor überlappenden alten Funktionen; ein Modifier reserviert seine alte Funktion, während er gehalten wird. Auch Roll- und Kamera-/Bremsaktionen werden dann entsprechend konsumiert, damit ein umbelegter Knopf nicht das eigene Manöver sofort abbricht. Das Pausemenü bietet Kamerawechsel und Sitzverlassen als Controller-Fallback, falls A/Y neu belegt wurden. Profilwechsel löschen alte gehaltene Zustände, damit kein Assist hängen bleibt. Mehrere lokale Operatoren mit getrennten Geräteprofilen sind weiterhin nicht implementiert.
+
+**Schubkonfiguration (Gameplay, kein Anspruch auf reale Technik):** Haupttriebwerk 100%, Quer-RCS 50%, Rückwärtsschub 60%. Konfigurierbar am `ShipPhysics`: `main_thrust_n`, `rcs_thrust_n` (X/Y), `forward_rcs_thrust_n` und `reverse_thrust_n`. Für gleichzeitige RCS-Achsen gilt ein richtungsabhängiges Ellipsoid: die quadratische Summe der auf ihre jeweiligen positiven/negativen Grenzkräfte normierten Komponenten überschreitet eins nicht. Manuelle Anforderungen erhalten ihr Budget zuerst; orthogonale Automatik nutzt den Rest. Vorwärts-RCS kann den Haupttriebwerks-Gesamtdeckel nicht überschreiten. Die Rotation hat ein eigenes Drehmoment-Ellipsoid. Das abstrahiert einzelne Düsen, Angriffspunkte, Treibstoff und gekoppelte Kraft-/Momentenbilanzen; ein echtes Thruster-Layout ist noch nicht implementiert.
+
+[Drift mit Hauptschub](docs/screenshots/advanced-drift.png) · [Retrograde ohne Hauptschub](docs/screenshots/advanced-retrograde.png) · [Controller-Bindings](docs/screenshots/advanced-bindings.png)
 
 ## Cockpitinstrumente
 
@@ -76,7 +97,7 @@ Die Bilder wurden bei 1280×720 mit Godot 4.7, Xvfb und Mesa/llvmpipe gerendert 
 
 ## Physik und Flugcomputer
 
-60-Hz-Physik, m/s/kg/N. Masse **120.000 kg**; Hauptschub **2.400.000 N = 20 m/s² ≈ 2,04 g**; RCS-Translation insgesamt **240.000 N = 2 m/s²**. LT/L2 nutzt den vorhandenen Rückwärts-RCS, keinen rückwärts gerichteten Hauptantrieb. Keine Geschwindigkeitsbegrenzung und keine künstliche Linear-/Winkeldämpfung.
+60-Hz-Physik, m/s/kg/N. Masse **120.000 kg**; Hauptschub **2.400.000 N = 20 m/s² ≈ 2,04 g**; seitlicher/vertikaler RCS-Schub **1.200.000 N = 10 m/s²**, Rückwärtsschub **1.440.000 N = 12 m/s²**. Vorwärts-Manöver-RCS (W) bleibt separat mit 1.200.000 N konfiguriert; Haupttriebwerk und Vorwärts-RCS teilen eine maximale Vorwärtsleistung von 2.400.000 N. Bei vollem Hauptschub erhält Vorwärts-RCS daher keine zusätzliche Leistung. LT/L2 nutzt den vorhandenen Rückwärts-RCS, keinen rückwärts gerichteten Hauptantrieb. Keine Geschwindigkeitsbegrenzung und keine künstliche Linear-/Winkeldämpfung.
 
 Das homogene 7 × 5 × 36-m-Rumpfmodell ergibt Trägheitsmomente **13.210.000 / 13.450.000 / 740.000 kg·m²**. Drehmomentgrenzen **5.284.000 / 5.380.000 / 296.000 Nm** ergeben maximal **0,4 rad/s²** um jede einzelne Hauptachse. Sie repräsentieren eigene paarweise arbeitende Rotations-RCS; Translation und Rotation haben getrennte Budgets. Ein normierter Gesamtvektor begrenzt gleichzeitige Achsenanforderungen. Physikzustände werden ausschließlich über Godots Kräfte-/Drehmoment-API integriert; nur der ausdrücklich ausgelöste Debug-Reset setzt Pose und Geschwindigkeiten.
 
@@ -109,7 +130,7 @@ Der Innenraum bleibt eine separate **lokale World3D** mit vereinfachter künstli
 - `test_arena.gd`, `exterior_orbit.gd`: statische Referenzen und unabhängige Kameradarstellung.
 - `pause_menu.gd`: Controller-/Maus-/Tastatur-Menüs.
 - `scripts/instruments/`: typisiertes `ShipTelemetry`-Snapshot, gemeinsame Display-Zeichenbasis, drei getrennte Instrumente und wiederverwendbare Cockpit-Montage.
-- `tests/`: bisherige vier Suiten plus Telemetrie-/Instrumenten-/Kameraprojektions-Tests; **171 Prüfungen** insgesamt.
+- `tests/`: fünf bestehende Suiten plus Advanced-Flight-/Manöver-/Binding-Tests; **228 Prüfungen** insgesamt.
 
 ```bash
 # Linux x86_64; benötigt curl, unzip und sha512sum:
@@ -121,6 +142,6 @@ Der Bootstrap installiert die offizielle, SHA512-geprüfte 4.7-Version außerhal
 
 [Messwerte und Testergebnisse](docs/validation.md), [Architektur und spätere Schnittstellen](docs/architecture.md).
 
-**Kein interaktiver Desktop- oder Controller-Hardwaretest für 0.1.3 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte Instrumente, Mausgefühl und Menüs auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Keine Waffen, Drohnen, KI, Netzwerk-, Replay- oder Missionssysteme.
+**Kein interaktiver Desktop- oder Controller-Hardwaretest für 0.1.4 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte C-Halten/Loslassen, Rückwärtsschub, Retrograde-Abbruch, Instrumente und umbelegte Controller-Kombinationen auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Keine Waffen, Drohnen, KI, Netzwerk-, Replay- oder Missionssysteme.
 
 Nächste empfohlene Aufgabe: Desktop-/Controller-Abnahme der Cockpit-Lesbarkeit bei unterschiedlicher Auflösung und Drift, danach gerichtete Crew-Beschleunigungseffekte und umschaltbare lokale Gravitation/Zero-G.

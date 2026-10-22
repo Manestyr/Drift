@@ -8,6 +8,7 @@ var main_engine: float = 0.0
 var brake_axes: Vector3 = Vector3.ZERO
 var brake_all: bool = false
 var brake_roll: bool = false
+var drift_cancel: bool = false
 
 func clear() -> void:
  translation = Vector3.ZERO
@@ -16,3 +17,4 @@ func clear() -> void:
  brake_axes = Vector3.ZERO
  brake_all = false
  brake_roll = false
+ drift_cancel = false

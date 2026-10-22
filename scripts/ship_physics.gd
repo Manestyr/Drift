@@ -3,7 +3,11 @@ extends RigidBody3D
 
 signal state_sampled(tick: int)
 @export var main_thrust_n: float = 2400000.0
-@export var rcs_thrust_n: float = 240000.0
+@export var rcs_thrust_n: float = 1200000.0
+@export var forward_rcs_thrust_n: float = 1200000.0
+@export var reverse_thrust_n: float = 1440000.0
+var negative_force_limits: Vector3 = Vector3.ZERO
+var positive_force_limits: Vector3 = Vector3.ZERO
 @export var torque_limits_nm := Vector3(5284000.0, 5380000.0, 296000.0)
 var computer := FlightComputer.new()
 var effective_inertia: Vector3 = Vector3.ZERO
@@ -34,12 +38,16 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
   state.angular_velocity = Vector3.ZERO
   command.clear()
   computer.attitude_hold = false
+  computer.reset_advanced()
   reset_requested = false
  effective_inertia = Vector3.ONE / state.inverse_inertia
- computer.solve(command, state.transform.basis, state.linear_velocity,
-  state.angular_velocity, effective_inertia, mass, rcs_thrust_n, torque_limits_nm)
- var force_local := computer.force_local
  applied_main_thrust_n = clampf(command.main_engine, 0.0, 1.0) * main_thrust_n
+ # Main engine gets priority; combined forward translation never exceeds its rating.
+ negative_force_limits = Vector3(rcs_thrust_n, rcs_thrust_n, minf(forward_rcs_thrust_n, main_thrust_n - applied_main_thrust_n))
+ positive_force_limits = Vector3(rcs_thrust_n, rcs_thrust_n, reverse_thrust_n)
+ computer.solve(command, state.transform.basis, state.linear_velocity,
+  state.angular_velocity, effective_inertia, mass, rcs_thrust_n, torque_limits_nm, negative_force_limits, positive_force_limits)
+ var force_local := computer.force_local
  force_local += Vector3.FORWARD * applied_main_thrust_n
  var force_world := state.transform.basis * force_local
  state.apply_central_force(force_world)

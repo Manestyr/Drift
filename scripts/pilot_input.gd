@@ -9,6 +9,7 @@ static func sample(command: FlightCommand, source: PlayerInput = null, delta: fl
 
 static func sample_keyboard(command: FlightCommand) -> void:
  command.clear()
+ command.drift_cancel = Input.is_action_pressed("drift_cancel")
  command.brake_all = Input.is_action_pressed("brake_all")
  if Input.is_action_pressed("flight_modifier"):
   command.brake_axes = Vector3(float(Input.is_action_pressed("left")),
