@@ -27,4 +27,4 @@ func draw_content() -> void:
  var braking := telemetry.brake_axes != Vector3.ZERO
  var braking_eta := "~%.1f s" % telemetry.eta if telemetry.eta >= 0 else "WAIT / MANUAL"
  text_at(Vector2(20, 410), "%.0f%% ETA %s" % [telemetry.progress * 100, braking_eta] if braking else "COAST / NO LINEAR BRAKE", TEXT, 24)
- text_at(Vector2(20, 438), "RCS free %.0f%% | ETA to .05 m/s" % (telemetry.brake_budget * 100), DIM, 20)
+ text_at(Vector2(20, 438), telemetry.crew_safety_status, DIM, 18)

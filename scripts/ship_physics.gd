@@ -9,6 +9,7 @@ signal state_sampled(tick: int)
 var negative_force_limits: Vector3 = Vector3.ZERO
 var positive_force_limits: Vector3 = Vector3.ZERO
 @export var torque_limits_nm := Vector3(5284000.0, 5380000.0, 296000.0)
+var crew_safety: CrewSafety
 var computer := FlightComputer.new()
 var effective_inertia: Vector3 = Vector3.ZERO
 var command := FlightCommand.new()
@@ -49,6 +50,12 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
   state.angular_velocity, effective_inertia, mass, rcs_thrust_n, torque_limits_nm, negative_force_limits, positive_force_limits)
  var force_local := computer.force_local
  force_local += Vector3.FORWARD * applied_main_thrust_n
+ if crew_safety != null:
+  force_local = crew_safety.limit_force(force_local, mass)
+  applied_main_thrust_n *= crew_safety.applied_fraction
+  computer.force_local *= crew_safety.applied_fraction
+  computer.automatic_force_local *= crew_safety.applied_fraction
+  computer.manual_force_local *= crew_safety.applied_fraction
  var force_world := state.transform.basis * force_local
  state.apply_central_force(force_world)
  state.apply_torque(state.transform.basis * computer.torque_local)

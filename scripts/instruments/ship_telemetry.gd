@@ -30,10 +30,13 @@ var retrograde_status: String = "IDLE"
 var retrograde_active: bool = false
 var negative_limits: Vector3 = Vector3.ZERO
 var positive_limits: Vector3 = Vector3.ZERO
+var crew_safety_status: String = "NO CREW MODEL"
 var main_limit: float = 0.0
 
 static func capture(ship: ShipPhysics, state: PhysicsDirectBodyState3D = null) -> ShipTelemetry:
  var data := ShipTelemetry.new()
+ if ship.crew_safety != null:
+  data.crew_safety_status = ship.crew_safety.status()
  data.tick = ship.tick
  data.orientation = ship.global_basis if state == null else state.transform.basis
  data.velocity_world = ship.linear_velocity if state == null else state.linear_velocity

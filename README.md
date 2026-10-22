@@ -1,6 +1,25 @@
-# DRIFT · Milestone 0.1.4
+# DRIFT · Milestone 0.2
 
-Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
+Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Neu: drei besetzbare, sicherbare Crewstationen, beobachtungsbasierte Sensorik, simulierte Feuerleitung und zentrale Crew-Schubsicherheit. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
+
+## Crewstationen und Sicherheit (0.2)
+
+Auf der Brücke stehen links die **Sensor-/Drohnenkonsole**, rechts die **Waffen-/Feuerleitkonsole** und vorne der bisherige Pilotensitz. **F** bzw. **A/Kreuz** besetzt die nächstgelegene freie Station (3 m) und sichert automatisch den Gurt. Dieselbe Taste verlässt die Station. Der Mittelgang führt durch den kurzen Korridor zu Maschinenbaugruppen, Serviceleitungen und Wartungsflächen im Heck. Keine externen Assets.
+
+| Neue Funktion | Tastatur | Xbox / PlayStation |
+|---|---|---|
+| Gurt sichern/lösen, ohne aufzustehen | U | B / Kreis |
+| Gefechts-Schubfreigabe anfordern/zurücknehmen | J | Linken Stick drücken |
+| Kontakt wählen, an taktischen Konsolen | Pfeil links/rechts | D-pad links/rechts |
+| Zielverfolgung an/aus, an taktischen Konsolen | T | X / Quadrat |
+
+Die Sensoranzeige zeigt schiffslokale relative Position, Entfernung, ID, geschätzte relative Geschwindigkeit, Qualität und Messalter. Grün bedeutet erfasst, Orange unzureichend erfasst. Drei passive Testziele werden alle 0,5 s bis 2,5 km beobachtet; die erste Messung kennt noch keine Geschwindigkeit. **T** aktiviert die Verfolgung des gewählten Kontakts; anschließend kann die Waffenstation eine simulierte Abfanglösung aus denselben Beobachtungen anzeigen. Die Waffenplätze sind leer/inert, Starts bleiben gesperrt. Es existieren keine Raketen oder Drohnen.
+
+**Normalbetrieb begrenzt die insgesamt angeforderte lineare Eigenbeschleunigung auf 3 g**, unabhängig davon, wie viele Schubkanäle gleichzeitig aktiv sind. Nach J ist bis 8 g nur erlaubt, wenn alle anwesenden Crewmitglieder an geeigneten Stationen gesichert sind. Sonst erscheint **HIGH-G DENIED / CREW UNSECURED**. Bestehende Geschwindigkeit, externe Kollisionsimpulse und die bisherigen Drehmomente werden nicht begrenzt. Die realen Triebwerkswerte bleiben unverändert: der Hauptantrieb liefert weiterhin 20 m/s² (ca. 2,04 g), auch bei Gefechtsfreigabe. Mit den aktuellen Antrieben ist deshalb kein sichtbarer 3-g-Leistungsabfall zu erwarten; die Freigabeverweigerung ist dennoch sichtbar.
+
+Die normal sichtbare Statuszeile nennt Station, Gurt und Schubfreigabe; F3 behält alle technischen Daten. Pilot und taktische Konsolen haben getrennte Eingabekontexte. Frei umbelegte erweiterte Pilotentasten behalten dort Vorrang; gegebenenfalls eine konfliktfreie Belegung wählen. Pause/Options und der Menüweg zum Verlassen bleiben verfügbar.
+
+Ansichten: [Brücke](docs/screenshots/crew-bridge.png), [Sensorstation](docs/screenshots/crew-sensors.png), [Feuerleitung](docs/screenshots/crew-weapons.png), [Pilot/Sicherheit](docs/screenshots/crew-pilot-safety.png), [Maschinenraum](docs/screenshots/crew-engineering.png). Reproduzierbar mit `godot --path . --audio-driver Dummy --resolution 1280x720 --script res://tests/crew_capture.gd` auf einem grafischen Display.
 
 ## Start und erster Flug
 
@@ -83,7 +102,7 @@ Controller-Bindings lassen sich unter **Pause → Advanced flight / Controller b
 
 ## Cockpitinstrumente
 
-Beim Start gibt es **keine permanente Debug-Textwand**. **F3** blendet die bisherigen technischen Daten und das Debug-Menü gemeinsam ein/aus. Außerhalb der Displays erscheint regulär nur die kontextuelle Stationsaufforderung. Drei geneigte, gerahmte Bildschirme mit Sockeln sitzen unterhalb der normalen Piloten-Sichtlinie; dieselben Texturen sind auch am lokalen Brückenpult zu sehen.
+Beim Start gibt es **keine permanente Debug-Textwand**. **F3** blendet die bisherigen technischen Daten und das Debug-Menü gemeinsam ein/aus. Außerhalb der Displays erscheinen die kontextuelle Stationsaufforderung beziehungsweise Station/Gurt/Schubfreigabe. Drei geneigte, gerahmte Bildschirme mit Sockeln sitzen unterhalb der normalen Piloten-Sichtlinie; dieselben Texturen sind auch am lokalen Brückenpult zu sehen.
 
 1. **Navigation:** echte 3D-Kugel mit Achsenringen und Pfeilen. **Blau = Forward (−Z), Orange = Geschwindigkeit, Grün = tatsächliche Schub-Beschleunigung.** Zahlen bleiben in m/s beziehungsweise m/s² korrekt. Bei neutralem Schub bleibt der Driftpfeil sichtbar und der grüne Pfeil verschwindet. **N** wechselt schiffslokale/Weltachsen; dieselbe Wahl ist im Flugcomputer-Pausemenü per Controller erreichbar. Die Geschwindigkeit bezieht sich in beiden Darstellungen auf den ausgewählten inertialen Flugcomputer-Rahmen; N ändert nur die Darstellung, F7 den Bezugsrahmen.
 2. **Propulsion / RCS:** Hauptschub-Prozent, tatsächliche Translations- und Rotations-RCS je Achse, Beschleunigung und g. Orange zeigt zugeteilte Leistung; grüne Marken zeigen den tatsächlich zugeteilten automatischen Gegensteuerungsanteil. Die linke/rechte Balkenhälfte bedeutet negative/positive lokale Achse; **−Z = vorwärts**, +Z = rückwärts. Nullmarken bleiben mittig. Dies ist kein Schema einzelner physischer Düsen.
@@ -126,11 +145,12 @@ Der Innenraum bleibt eine separate **lokale World3D** mit vereinfachter künstli
 - `ship_physics.gd`, `flight_command.gd`: Physikzustand und geräteunabhängiger Befehlsdatensatz.
 - `flight_computer.gd`: reine Kraft-/Drehmomentregelung und Bremstelemetrie im festen Tick.
 - `player_input.gd`, `pilot_input.gd`, `input_settings.gd`: lokale Adapter, Aktionen und persistente Einstellungen.
-- `crew_controller.gd`, `crew_station.gd`: lokale Crewbewegung und exklusive Stationsbelegung.
+- `crew_controller.gd`, `crew_station.gd`, `crew/`: lokale Bewegung, Stationsidentität, Crew und zentrale Schubsicherheit.
+- `tactical/`: Sensorbeobachtungen, simulierte Feuerleitung und physische Konsolenanzeigen.
 - `test_arena.gd`, `exterior_orbit.gd`: statische Referenzen und unabhängige Kameradarstellung.
 - `pause_menu.gd`: Controller-/Maus-/Tastatur-Menüs.
 - `scripts/instruments/`: typisiertes `ShipTelemetry`-Snapshot, gemeinsame Display-Zeichenbasis, drei getrennte Instrumente und wiederverwendbare Cockpit-Montage.
-- `tests/`: fünf bestehende Suiten plus Advanced-Flight-/Manöver-/Binding-Tests; **228 Prüfungen** insgesamt.
+- `tests/`: sechs unveränderte bestehende Suiten (228 Prüfungen) plus Crew-/Sensor-/Sicherheits-Tests (67); **295 Prüfungen** insgesamt.
 
 ```bash
 # Linux x86_64; benötigt curl, unzip und sha512sum:
@@ -142,6 +162,12 @@ Der Bootstrap installiert die offizielle, SHA512-geprüfte 4.7-Version außerhal
 
 [Messwerte und Testergebnisse](docs/validation.md), [Architektur und spätere Schnittstellen](docs/architecture.md).
 
-**Kein interaktiver Desktop- oder Controller-Hardwaretest für 0.1.4 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte C-Halten/Loslassen, Rückwärtsschub, Retrograde-Abbruch, Instrumente und umbelegte Controller-Kombinationen auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Keine Waffen, Drohnen, KI, Netzwerk-, Replay- oder Missionssysteme.
+**Kein interaktiver Desktop- oder Controller-Hardwaretest für 0.2 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte C-Halten/Loslassen, Rückwärtsschub, Retrograde-Abbruch, Instrumente und umbelegte Controller-Kombinationen auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Keine aktiven Waffen, Drohnen, KI, Netzwerk-, Replay- oder Missionssysteme.
 
 Nächste empfohlene Aufgabe: Desktop-/Controller-Abnahme der Cockpit-Lesbarkeit bei unterschiedlicher Auflösung und Drift, danach gerichtete Crew-Beschleunigungseffekte und umschaltbare lokale Gravitation/Zero-G.
+
+## Grenzen und nächste Schritte (0.2)
+
+Der Innenraum behält seine separate lokale World3D mit künstlicher Schwerkraft. Er bildet Beschleunigungsstürze, Zero-G, Corioliskräfte und physische Kopplung an den globalen Rumpf noch nicht ab. Individuelle Beschleunigungsdaten am nominellen Crewplatz sind vorbereitet; Kollisionsimpulse und künstliche Schwerkraft fließen noch nicht in diese Lastbeobachtung ein. Keine Bewusstlosigkeit oder Gesundheitssimulation. Sensorik ist ein vereinfachter omnidirektionaler Test mit begrenzter Reichweite/Abtastrate/Quantisierung, ohne Sichtlinienprüfung oder reale Signaturphysik. Keine GPU-Performance-Messung; primitive Geometrie und fünf Display-Viewports insgesamt.
+
+Empfohlene Reihenfolge: **0.2.1:** gemeinsamer Desktop-/Controller-Abnahmetest aller Stationswege und besser kalibrierte Interieur-/Crewplatz-Koordinaten; **0.3:** Sensor-Sichtlinien/Signaturen und autoritative Stationsbefehle; danach erst ein begrenzter Raketenprototyp, später KI-/Koop-Besetzung. Hoch-g-Sequenzen mit Beschleunigungsliegen und begrenzter fiktiver Unterstützung bleiben späterer Scope (siehe Architektur), ohne medizinische Anwendungen nachzubilden.

@@ -1,5 +1,13 @@
 extends Node
 
+var stations: Array[CrewStation] = []
+var tactical_displays: Array[TacticalDisplay] = []
+var crew_member := CrewMember.new()
+var crew_safety := CrewSafety.new()
+var sensors := SensorSuite.new()
+var fire_control := FireControl.new()
+var sensor_targets: Array[Node3D] = []
+var last_angular_velocity := Vector3.ZERO
 var input_source: PlayerInput
 var pause_menu: PauseMenu
 var instruments: CockpitInstruments
@@ -29,6 +37,9 @@ func _ready() -> void:
  input_source.device_changed.connect(_active_device_changed)
  _space()
  _interior()
+ crew_safety.members.append(crew_member)
+ ship.crew_safety = crew_safety
+ _tactical_targets()
  _ui()
  pause_menu = PauseMenu.new()
  pause_menu.source = input_source
@@ -148,14 +159,23 @@ func _interior() -> void:
   label.text = "BRIDGE / PILOT" if z < 0 else ("TRANSFER CORRIDOR" if z == 0 else "ENGINEERING")
   label.position = Vector3(0, 2.6, z - 3)
   label.font_size = 48
+  label.double_sided = false
   room.add_child(label)
+  var reverse := label.duplicate() as Label3D
+  reverse.rotation.y = PI
+  reverse.position.z -= 0.01
+  room.add_child(reverse)
  _box(room, Vector3(0, 0.45, -14), Vector3(1, 0.9, 1), Color(0.12, 0.4, 0.5), true)
  _box(room, Vector3(0, 1, -16), Vector3(3, 1, 0.8), Color(0.1, 0.5, 0.6), true)
  for x: float in [-1.8, 1.8]:
-  _box(room, Vector3(x, 1.2, 13), Vector3(1.4, 2.4, 6), Color(0.55, 0.27, 0.09), true)
+  _box(room, Vector3(x, 0.35, 13), Vector3(1.4, 0.7, 6), Color(0.55, 0.27, 0.09), true)
  station = CrewStation.new()
  station.position = Vector3(0, 1, -12.5)
  room.add_child(station)
+ stations.append(station)
+ _build_station(room, "sensors", "SENSOR / DRONE", Vector3(-1.7, 1, -9.6))
+ _build_station(room, "weapons", "WEAPONS / FIRE CONTROL", Vector3(1.7, 1, -9.6))
+ _industrial_details(room)
  crew = CrewController.new()
  crew.input_source = input_source
  crew.position = Vector3(0, 1, -9)
@@ -203,6 +223,33 @@ func _ui() -> void:
  canvas.add_child(debug_panel)
 
 func _unhandled_input(event: InputEvent) -> void:
+ var occupied := current_station()
+ var advanced_reserved := occupied == station and input_source.advanced_consumes(event)
+ if event.is_action_pressed("secure_crew") and occupied != null and not advanced_reserved:
+  occupied.set_secured(not occupied.secured)
+ if event.is_action_pressed("combat_envelope") and not advanced_reserved:
+  crew_safety.combat_requested = not crew_safety.combat_requested
+ if occupied != null and occupied != station:
+  if outside and event is InputEventMouseMotion and controls_captured and not input_source.using_gamepad:
+   orbit.turn(event.relative * 0.004)
+  if outside and event.is_action_pressed("zoom_in"):
+   orbit.zoom(-0.15)
+  if outside and event.is_action_pressed("zoom_out"):
+   orbit.zoom(0.15)
+  if event.is_action_pressed("interact"):
+   _leave_pilot()
+  elif event.is_action_pressed("target_previous"):
+   sensors.cycle(-1)
+  elif event.is_action_pressed("target_next"):
+   sensors.cycle(1)
+  elif event.is_action_pressed("sensor_track"):
+   sensors.toggle_tracking()
+  elif event.is_action_pressed("exterior"):
+   _toggle_exterior()
+  elif event.is_action_pressed("debug"):
+   debug_panel.visible = not debug_panel.visible
+   hud.visible = debug_panel.visible
+  return
  if event is InputEventMouseMotion and controls_captured and not input_source.using_gamepad:
   if outside:
    orbit.turn(event.relative * 0.004)
@@ -223,8 +270,10 @@ func _unhandled_input(event: InputEvent) -> void:
   input_source.clear_mouse()
   if station.occupied:
    _leave_pilot()
-  elif crew.position.distance_to(station.position) < 3.0 and not outside:
-   crew.seated = station.enter()
+  elif not outside:
+   var nearest := nearest_station()
+   if nearest != null:
+    crew.seated = nearest.enter(crew_member.member_id)
   _update_view()
  if input_source.computer_event(event, "grid"):
   arena.grid.visible = not arena.grid.visible
@@ -259,11 +308,13 @@ func _toggle_exterior() -> void:
  _update_view()
 
 func _leave_pilot() -> void:
- if not station.occupied:
+ var occupied := current_station()
+ if occupied == null:
   return
- station.leave()
+ var exit_position := occupied.position + Vector3(0,0,1.0)
+ occupied.leave()
  crew.seated = false
- crew.position = Vector3(0, 1, -12)
+ crew.position = exit_position
  ship.command.clear()
  ship.computer.cancel_retrograde("CANCELLED / STATION")
  outside = false
@@ -271,7 +322,12 @@ func _leave_pilot() -> void:
 
 func _update_view() -> void:
  crew.controls_enabled = controls_captured and not outside
- interior_view.visible = not station.occupied and not outside
+ var occupied := current_station()
+ interior_view.visible = (occupied == null or occupied != station) and not outside
+ if occupied != null and occupied != station and not outside:
+  occupied.camera.current = true
+ elif occupied == null:
+  crew.camera.current = true
  if outside:
   outside_camera.current = true
  else:
@@ -290,10 +346,20 @@ func _pause_changed(_paused: bool) -> void:
  crew.controls_enabled = not outside
 
 func _reset_ship() -> void:
+ last_angular_velocity = Vector3.ZERO
  input_source.clear_mouse()
  ship.reset_requested = true
 
 func _physics_process(delta: float) -> void:
+ var occupied := current_station()
+ crew_member.station_id = occupied.station_id if occupied != null else ""
+ crew_member.secured = occupied.secured if occupied != null else false
+ crew_member.seat_position = occupied.position if occupied != null else crew.position
+ crew_member.seat_basis = occupied.basis if occupied != null else crew.basis
+ sensors.sample(sensor_targets, ship.global_transform, ship.linear_velocity, ship.tick, delta)
+ fire_control.update(sensors.selected())
+ for display in tactical_displays:
+  display.queue_redraw()
  input_source.set_orbit_mode(outside and input_source.orbit_held())
  if station.occupied and controls_captured:
   PilotInput.sample(ship.command, input_source, delta)
@@ -303,6 +369,9 @@ func _physics_process(delta: float) -> void:
 func _sample_instruments(_tick: int) -> void:
  var state := PhysicsServer3D.body_get_direct_state(ship.get_rid())
  instruments.refresh(ShipTelemetry.capture(ship, state))
+ var angular_acceleration := (state.angular_velocity-last_angular_velocity) / state.step
+ crew_member.sample_load(ship.acceleration_world,state.angular_velocity,angular_acceleration,state.transform.basis,ship.tick)
+ last_angular_velocity = state.angular_velocity
 
 func _process(delta: float) -> void:
  if outside and input_source.using_gamepad and input_source.orbit_held():
@@ -311,14 +380,18 @@ func _process(delta: float) -> void:
  orbit.update(outside_camera, ship.position)
  nose_hint.visible = false
  status_hint.text = ""
- if not station.occupied and crew.position.distance_to(station.position) < 3.0:
-  status_hint.text = "A / Cross: pilot station" if input_source.using_gamepad else "F: pilot station"
- var g_load := ship.acceleration_world.length() / 9.80665
+ var occupied := current_station()
+ var nearest := nearest_station()
+ if occupied == null and nearest != null:
+  status_hint.text = ("A / Cross: " if input_source.using_gamepad else "F: ") + nearest.role
+ elif occupied != null:
+  status_hint.text = "%s / %s | %s | %s" % [occupied.role, "SECURED" if occupied.secured else "UNSECURED",crew_safety.status(), "B/Circle: harness | LS: combat" if input_source.using_gamepad else "U: harness | J: combat"]
+ var g_load := crew_member.proper_acceleration.length() / 9.80665
  exposure = lerpf(exposure, g_load, 1.0 - exp(-delta / maxf(g_effect_response_seconds, 0.01)))
  (stress_overlay.material as ShaderMaterial).set_shader_parameter("strength", clampf(exposure * g_effect_gain, 0.0, 0.65))
  var local_v := ship.local_velocity()
  var mode := "PILOT / NEWTONIAN" if station.occupied else "CREW / LOCAL ARTIFICIAL GRAVITY"
- hud.text = "DRIFT 0.1.4 | %s\nSpeed %.2f m/s | local v [%.2f, %.2f, %.2f] m/s\nMain %.0f N | acceleration %.2f m/s² | %.2f g\nSustained load %.2f g | physics tick %d" % [mode, ship.linear_velocity.length(), local_v.x, local_v.y, local_v.z, ship.applied_main_thrust_n, ship.acceleration_world.length(), g_load, exposure, ship.tick]
+ hud.text = "DRIFT 0.2 | %s\nSpeed %.2f m/s | local v [%.2f, %.2f, %.2f] m/s\nMain %.0f N | acceleration %.2f m/s² | %.2f g\nSustained load %.2f g | physics tick %d" % [mode, ship.linear_velocity.length(), local_v.x, local_v.y, local_v.z, ship.applied_main_thrust_n, ship.acceleration_world.length(), g_load, exposure, ship.tick]
  var rate := ship.global_basis.inverse() * ship.angular_velocity * (180.0 / PI)
  var fc := ship.computer
  var relative_v := ship.global_basis.inverse() * (ship.linear_velocity - fc.reference_velocity)
@@ -332,3 +405,113 @@ func _process(delta: float) -> void:
  hud.text += "\n" + input_source.hints(station.occupied)
  if not station.occupied and crew.position.distance_to(station.position) < 3.0:
   hud.text += "\n[A / Cross] Take pilot station" if input_source.using_gamepad else "\n[F] Take pilot station"
+
+func current_station() -> CrewStation:
+ for candidate in stations:
+  if candidate.occupied:
+   return candidate
+ return null
+
+func nearest_station() -> CrewStation:
+ var nearest: CrewStation = null
+ var distance: float = 3.0
+ for candidate in stations:
+  var candidate_distance := crew.position.distance_to(candidate.position)
+  if candidate_distance < distance and not candidate.occupied:
+   nearest = candidate
+   distance = candidate_distance
+ return nearest
+
+func _build_station(room: Node3D, id: String, role: String, at: Vector3) -> void:
+ var console := CrewStation.new()
+ console.station_id = id
+ console.role = role
+ console.controlled_subsystems = PackedStringArray(["sensors", "drone-reserved"] if id == "sensors" else ["fire-control"])
+ console.position = at
+ room.add_child(console)
+ stations.append(console)
+ console.camera = Camera3D.new()
+ console.camera.position = Vector3(0, 0.7, 0)
+ console.camera.fov = 65
+ console.add_child(console.camera)
+ var viewport := SubViewport.new()
+ viewport.size = Vector2i(960,640)
+ viewport.gui_disable_input = true
+ viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+ add_child(viewport)
+ var display := TacticalDisplay.new()
+ display.sensors = sensors
+ display.fire_control = fire_control
+ display.safety = crew_safety
+ display.weapons = id == "weapons"
+ viewport.add_child(display)
+ tactical_displays.append(display)
+ var screen := MeshInstance3D.new()
+ var quad := QuadMesh.new()
+ quad.size = Vector2(1.85,1.23)
+ screen.mesh = quad
+ screen.position = Vector3(0,0.7,-1.15)
+ var material := StandardMaterial3D.new()
+ material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+ material.albedo_texture = viewport.get_texture()
+ screen.material_override = material
+ console.add_child(screen)
+ _box(console,Vector3(0,0.7,-1.22),Vector3(2.0,1.38,0.12),Color(0.1,0.13,0.14),true)
+ _box(console,Vector3(0,-0.5,-1.15),Vector3(1.9,0.9,0.7),Color(0.14,0.2,0.22),true)
+ _box(console,Vector3(0,-0.5,0.1),Vector3(0.65,0.8,0.65),Color(0.17,0.25,0.26),true)
+ _box(console,Vector3(0,0.1,0.45),Vector3(0.65,1.1,0.14),Color(0.2,0.28,0.28))
+ var label := Label3D.new()
+ label.text = role
+ label.position = Vector3(0,1.55,-1.2)
+ label.font_size = 32
+ label.pixel_size = 0.002
+ console.add_child(label)
+
+func _industrial_details(room: Node3D) -> void:
+ # Ribs, service runs and engineering panels leave a central 1.8m circulation lane.
+ for z: float in [-16,-12,-8,-4,0,4,8,12,16]:
+  for x: float in [-2.7,2.7]:
+   _box(room,Vector3(x,1.8,z),Vector3(0.18,3.5,0.18),Color(0.28,0.31,0.31))
+  _box(room,Vector3(0,3.5,z),Vector3(5.5,0.16,0.18),Color(0.28,0.31,0.31))
+ for x: float in [-2.6,2.6]:
+  _box(room,Vector3(x,3.1,0),Vector3(0.16,0.16,34),Color(0.6,0.36,0.13))
+  _box(room,Vector3(x*0.9,0.015,0),Vector3(0.08,0.02,34),Color(0.7,0.48,0.18))
+  for z: float in [-5,-1,3]:
+   _box(room,Vector3(x,1.1,z),Vector3(0.35,1.6,2),Color(0.12,0.17,0.19),true)
+ for side: float in [-1.0,1.0]:
+  for z: float in [10.5,12.0,13.5,15.0]:
+   var drum := MeshInstance3D.new()
+   var cylinder := CylinderMesh.new()
+   cylinder.top_radius = 0.55
+   cylinder.bottom_radius = 0.55
+   cylinder.height = 1.25
+   cylinder.radial_segments = 16
+   drum.mesh = cylinder
+   drum.rotation.x = PI/2
+   drum.position = Vector3(side*1.8,1.35,z)
+   var metal := StandardMaterial3D.new()
+   metal.albedo_color = Color(0.27,0.3,0.29)
+   metal.metallic = 0.65
+   metal.roughness = 0.6
+   drum.material_override = metal
+   room.add_child(drum)
+   _box(room,Vector3(side*1.8,1.35,z+0.64),Vector3(1.16,1.16,0.12),Color(0.35,0.22,0.1))
+   _box(room,Vector3(side*1.18,1.3,z),Vector3(0.12,0.5,0.7),Color(0.1,0.15,0.17))
+   for y: float in [1.15,1.3,1.45]:
+    _box(room,Vector3(side*1.1,y,z),Vector3(0.05,0.04,0.5),Color(0.25,0.65,0.45))
+ for z: float in [11,13,15]:
+  for x: float in [-1.8,1.8]:
+   _box(room,Vector3(x,2.45,z),Vector3(1.25,0.12,0.7),Color(0.3,0.34,0.34))
+   _box(room,Vector3(x-signf(x)*0.73,1.6,z),Vector3(0.04,0.22,0.65),Color(0.2,0.65,0.45))
+ for z: float in [-15,-10,-3,4,12]:
+  _box(room,Vector3(0,3.57,z),Vector3(1.4,0.06,0.25),Color(0.65,0.72,0.7))
+
+func _tactical_targets() -> void:
+ var positions: Array[Vector3] = [Vector3(-220,80,-550),Vector3(320,0,-650),Vector3(1000,-250,-1800)]
+ for i in positions.size():
+  var target := Node3D.new()
+  target.name = "TEST-%02d" % (i+1)
+  target.position = positions[i]
+  add_child(target)
+  _box(target,Vector3.ZERO,Vector3(18,12,25),Color(0.38,0.3,0.2))
+  sensor_targets.append(target)

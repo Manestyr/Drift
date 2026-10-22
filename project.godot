@@ -3,7 +3,7 @@ config_version=5
 [application]
 
 config/name="DRIFT"
-config/version="0.1.4"
+config/version="0.2"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
@@ -317,4 +317,25 @@ pad_retrograde={
 "deadzone": 0.5,
 "events": Array[InputEvent]([Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"button_index":4,"pressure":0.0,"pressed":false,"script":null)
 ])
+}
+
+secure_crew={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"device":-1,"physical_keycode":85), Object(InputEventJoypadButton,"device":-1,"button_index":1)]
+}
+combat_envelope={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"device":-1,"physical_keycode":74), Object(InputEventJoypadButton,"device":-1,"button_index":7)]
+}
+target_previous={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"device":-1,"physical_keycode":4194319), Object(InputEventJoypadButton,"device":-1,"button_index":13)]
+}
+target_next={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"device":-1,"physical_keycode":4194321), Object(InputEventJoypadButton,"device":-1,"button_index":14)]
+}
+sensor_track={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"device":-1,"physical_keycode":84), Object(InputEventJoypadButton,"device":-1,"button_index":2)]
 }
