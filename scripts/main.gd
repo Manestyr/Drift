@@ -450,10 +450,11 @@ func _build_station(room: Node3D, id: String, role: String, at: Vector3) -> void
  var quad := QuadMesh.new()
  quad.size = Vector2(1.85,1.23)
  screen.mesh = quad
- screen.position = Vector3(0,0.7,-1.15)
+ screen.position = Vector3(0,0.7,-1.12)
  var material := StandardMaterial3D.new()
  material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
  material.albedo_texture = viewport.get_texture()
+ material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
  screen.material_override = material
  console.add_child(screen)
  _box(console,Vector3(0,0.7,-1.22),Vector3(2.0,1.38,0.12),Color(0.1,0.13,0.14),true)

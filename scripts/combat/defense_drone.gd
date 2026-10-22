@@ -8,7 +8,14 @@ var team: int = 0
 var fuel_delta_v: float = 650.0
 var thrust_n: float = 18000.0
 var ammunition: int = 60
-var defense_enabled: bool = false
+var command_mode: String = "ESCORT"
+var gun_interval: float = 0.25
+var engagement_range: float = 420.0
+var defense_enabled: bool = false:
+ set(value):
+  defense_enabled=value
+  if value: command_mode="DEFEND"
+  elif command_mode=="DEFEND": command_mode="ESCORT"
 var recalling: bool = false
 var waypoint: Vector3 = Vector3(-60,20,-80)
 var hold_world: bool = false
@@ -32,6 +39,7 @@ func _init() -> void:
  inertia=Vector3.ONE*250.0
  collision_layer=8
  collision_mask=1|4
+ sensors.estimate_acceleration=true
  sensors.cadence_seconds=0.05
  sensors.measurement_resolution_m=0.05
  sensors.max_range_m=650.0
@@ -54,16 +62,21 @@ func _ready() -> void:
  add_child(mesh)
 
 func assign_waypoint(offset: Vector3) -> void:
- waypoint=offset.limit_length(220.0)
+ waypoint=offset.limit_length(1200.0)
+ defense_enabled=false
+ command_mode="ESCORT"
  recalling=false
  hold_world=false
 
 func hold_position() -> void:
+ defense_enabled=false
+ command_mode="HOLD"
  world_waypoint=global_position
  hold_world=true
  recalling=false
 
 func recall() -> void:
+ command_mode="RECALL"
  recalling=true
  hold_world=false
  defense_enabled=false
@@ -85,7 +98,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
   applied_force*=minf(1.0,fuel_delta_v/dv)
   fuel_delta_v=maxf(0,fuel_delta_v-applied_force.length()/mass*state.step)
   state.apply_central_force(applied_force)
- status="RECALL" if recalling else ("WORLD HOLD" if hold_world else "CARRIER WAYPOINT")
+ status="RECALL" if recalling else command_mode
  if fuel_delta_v<=0: status="FUEL EMPTY / COAST"
  if recalling and offset.length()<3.0 and (state.linear_velocity-desired_velocity).length()<2.0:
   docked=true
@@ -96,9 +109,9 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
  sensors.sample(valid,state.transform,state.linear_velocity,ticks,state.step)
  if defense_enabled and ammunition>0 and cooldown<=0:
   for contact in sensors.contacts:
-   if contact.team!=team and contact.kind=="missile" and contact.acquired() and contact.velocity_known and contact.relative_position.length()<420:
+   if can_engage(contact):
     call_deferred("_fire",contact)
-    cooldown=0.25
+    cooldown=gun_interval
     break
 
 func _finish_recovery() -> void:
@@ -106,11 +119,16 @@ func _finish_recovery() -> void:
  queue_free()
 
 func _fire(contact: SensorContact) -> void:
- if docked or not defense_enabled or ammunition<=0: return
- var estimated_position := contact.observed_position_world+contact.observed_velocity_world*contact.age_seconds
- var flight_time := global_position.distance_to(estimated_position)/2000.0
- var aim := estimated_position+contact.observed_velocity_world*flight_time
- var direction := (aim-global_position).normalized()
+ if docked or not defense_enabled or ammunition<=0 or not can_engage(contact): return
+ # Deferred actuation follows the sampling physics step; include that known delivery latency.
+ var age:=contact.age_seconds+1.0/float(Engine.physics_ticks_per_second)
+ var acceleration:=contact.observed_acceleration_world
+ var estimated_position:=contact.observed_position_world+contact.observed_velocity_world*age+acceleration*0.5*age*(age+contact.velocity_sample_seconds)
+ var relative_position:=estimated_position-global_position
+ var relative_velocity:=contact.observed_velocity_world+acceleration*(age+contact.velocity_sample_seconds*0.5)-linear_velocity
+ var flight_time:=relative_position.length()/2000.0
+ for i in range(4): flight_time=maxf(0,(relative_position+relative_velocity*flight_time+acceleration*0.5*flight_time*flight_time).length()-2.5)/2000.0
+ var direction := (relative_position+relative_velocity*flight_time+acceleration*0.5*flight_time*flight_time).normalized()
  var round_body := DefenseRound.new()
  round_body.team=team
  round_body.position=global_position+direction*2.5
@@ -119,3 +137,14 @@ func _fire(contact: SensorContact) -> void:
  round_body.exclusions=[round_body.get_rid()]
  ammunition-=1
  round_fired.emit(round_body)
+
+func can_engage(contact: SensorContact) -> bool:
+ if contact.team==team or contact.kind!="missile" or not contact.acquired() or not contact.velocity_known: return false
+ var position_estimate := contact.observed_position_world+contact.observed_velocity_world*contact.age_seconds
+ if global_position.distance_to(position_estimate)>engagement_range: return false
+ # Protect the carrier from inbound tracks; no shots wasted on harmless outbound tracks.
+ var relative := position_estimate-carrier.global_position
+ var velocity := contact.observed_velocity_world-carrier.linear_velocity
+ if relative.dot(velocity)>=0: return false
+ var time := clampf(-relative.dot(velocity)/maxf(velocity.length_squared(),0.01),0,6)
+ return (relative+velocity*time).length()<200.0

@@ -26,6 +26,9 @@ func run() -> void:
   return
  root.size=Vector2i(1280,720)
  var game = load("res://scenes/contact_alpha.tscn").instantiate()
+ game.setup_mode=CombatProfile.Mode.FULL_AUTO
+ game.setup_difficulty=CombatProfile.Difficulty.EASY
+ game.setup_seed=1741
  root.add_child(game)
  game.pause_menu.save_settings_on_close=false
  await simulation_to(game,12.5)

@@ -8,6 +8,12 @@ var tracking_enabled: bool = false
 var max_range_m: float = 2500.0
 var cadence_seconds: float = 0.5
 var measurement_resolution_m: float = 5.0
+var estimate_acceleration: bool = false
+var previous_velocities: Dictionary = {}
+var previous_accelerations: Dictionary = {}
+var tracking_refinement: bool = false
+var track_seconds: float = 0.0
+var tracking_id: String = ""
 var enabled: bool = true
 var elapsed: float = 0.0
 var previous_positions: Dictionary = {}
@@ -18,6 +24,12 @@ func sample(targets: Array[Node3D], observer: Transform3D, velocity: Vector3, ti
   contact.age_seconds += dt
  if not enabled:
   return
+ if tracking_refinement:
+  if not tracking_enabled or selected_id!=tracking_id:
+   track_seconds=0.0
+   tracking_id=selected_id
+  elif selected()!=null and selected().age_seconds<1.5:
+   track_seconds+=dt
  elapsed += dt
  if elapsed < cadence_seconds:
   return
@@ -42,11 +54,23 @@ func sample(targets: Array[Node3D], observer: Transform3D, velocity: Vector3, ti
   contact.kind = String(target.get_meta("kind","ship"))
   contact.team = int(target.get_meta("team",-1))
   contact.tracking = tracking_enabled and selected_id == id
+  if tracking_refinement and contact.tracking:
+   contact.track_seconds=track_seconds
+   contact.quality=clampf(contact.quality+0.15*(1.0-exp(-track_seconds/1.2)),0,1)
+   contact.solution_progress=clampf(track_seconds/2.0,0,1)
+   contact.lock_quality=contact.quality*contact.solution_progress
   if previous_positions.has(id):
    var measurement_dt := float(tick - int(previous_ticks[id])) / float(Engine.physics_ticks_per_second)
    contact.relative_velocity = observer.basis.inverse() * ((measured - previous_positions[id]) / maxf(measurement_dt, interval) - velocity)
    contact.velocity_known = true
    contact.observed_velocity_world = (measured-previous_positions[id])/maxf(measurement_dt,interval)
+   contact.velocity_sample_seconds=maxf(measurement_dt,interval)
+   if estimate_acceleration:
+    if previous_velocities.has(id):
+     var derived: Vector3=((contact.observed_velocity_world-previous_velocities[id])/contact.velocity_sample_seconds).limit_length(300)
+     contact.observed_acceleration_world=derived.lerp(previous_accelerations.get(id,derived),0.5)
+     previous_accelerations[id]=contact.observed_acceleration_world
+    previous_velocities[id]=contact.observed_velocity_world
   previous_positions[id] = measured
   previous_ticks[id] = tick
   next.append(contact)
@@ -76,5 +100,12 @@ func toggle_tracking() -> void:
  _sync_tracking()
 
 func _sync_tracking() -> void:
+ if not tracking_enabled or selected_id!=tracking_id:
+  track_seconds=0
+  tracking_id=selected_id
  for contact in contacts:
   contact.tracking = tracking_enabled and contact.contact_id == selected_id
+  if tracking_refinement and (not contact.tracking or track_seconds==0):
+   contact.track_seconds=0
+   contact.solution_progress=0
+   contact.lock_quality=0

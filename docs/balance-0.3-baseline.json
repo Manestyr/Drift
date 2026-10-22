@@ -1,0 +1,90 @@
+[
+  {
+    "enemy_hull": 0.0,
+    "events": {
+      "drone_launch": 1,
+      "incapacitated": 1,
+      "intercept": 2,
+      "launch": 5,
+      "missile_hit": 3,
+      "system_damage": 3
+    },
+    "player_hull": 100.0,
+    "result": "VICTORY",
+    "seconds": 43.85,
+    "support": "full",
+    "variant": 0
+  },
+  {
+    "enemy_hull": 0.0,
+    "events": {
+      "drone_launch": 1,
+      "incapacitated": 1,
+      "intercept": 2,
+      "launch": 5,
+      "missile_hit": 3,
+      "system_damage": 3
+    },
+    "player_hull": 100.0,
+    "result": "VICTORY",
+    "seconds": 43.85,
+    "support": "full",
+    "variant": 1
+  },
+  {
+    "enemy_hull": 32.0,
+    "events": {
+      "incapacitated": 1,
+      "launch": 5,
+      "missile_hit": 5,
+      "system_damage": 8
+    },
+    "player_hull": 0.0,
+    "result": "DEFEAT",
+    "seconds": 54.52,
+    "support": "no-drone",
+    "variant": 0
+  },
+  {
+    "enemy_hull": 0.0,
+    "events": {
+      "incapacitated": 1,
+      "launch": 5,
+      "missile_hit": 5,
+      "system_damage": 7
+    },
+    "player_hull": 32.0,
+    "result": "VICTORY",
+    "seconds": 43.85,
+    "support": "no-drone",
+    "variant": 1
+  },
+  {
+    "enemy_hull": 100.0,
+    "events": {
+      "incapacitated": 1,
+      "launch": 3,
+      "missile_hit": 3,
+      "system_damage": 6
+    },
+    "player_hull": 0.0,
+    "result": "DEFEAT",
+    "seconds": 54.52,
+    "support": "idle",
+    "variant": 0
+  },
+  {
+    "enemy_hull": 100.0,
+    "events": {
+      "incapacitated": 1,
+      "launch": 3,
+      "missile_hit": 3,
+      "system_damage": 6
+    },
+    "player_hull": 0.0,
+    "result": "DEFEAT",
+    "seconds": 54.55,
+    "support": "idle",
+    "variant": 1
+  }
+]

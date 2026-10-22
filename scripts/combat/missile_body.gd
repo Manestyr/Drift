@@ -1,8 +1,10 @@
 class_name MissileBody
 extends RigidBody3D
 
+signal expired(missile: MissileBody)
 signal impact(missile: MissileBody, body: Node3D, point: Vector3)
 var team: int = 0
+var order_source: String = "PLAYER"
 var carrier_id: String = ""
 var target_id: String = ""
 var seeker := SensorSuite.new()
@@ -122,6 +124,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
  if lifetime>55.0:
   spent=true
   status="EXPIRED / MISS"
+  expired.emit(self)
   call_deferred("queue_free")
 
 func _physics_process(_dt: float) -> void:

@@ -19,3 +19,5 @@ mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 "$engine" --headless --fixed-fps 60 --path . --script res://tests/crew_stations_test.gd
 "$engine" --headless --fixed-fps 60 --path . res://scenes/contact_alpha.tscn --quit-after 120
 "$engine" --headless --fixed-fps 60 --path . --script res://tests/combat_test.gd
+
+"$engine" --headless --fixed-fps 60 --path . --script res://tests/agency_test.gd

@@ -10,8 +10,13 @@ var observed_tick: int = 0
 var age_seconds: float = 0.0
 var observed_position_world: Vector3 = Vector3.ZERO
 var observed_velocity_world: Vector3 = Vector3.ZERO
+var observed_acceleration_world: Vector3 = Vector3.ZERO
+var velocity_sample_seconds: float = 0.0
 var kind: String = "ship"
 var team: int = -1
+var track_seconds: float = 0.0
+var lock_quality: float = 0.0
+var solution_progress: float = 0.0
 var tracking: bool = false
 
 func acquired() -> bool:

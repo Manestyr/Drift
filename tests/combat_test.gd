@@ -155,11 +155,14 @@ func run() -> void:
  ai.command_for(contact,Basis.IDENTITY,Vector3.ZERO,command,1)
  check(absf(command.translation.x)>0.01 and command.translation.length()<=0.4,"enemy AI uses bounded lateral evasion and standoff intent")
  var game = load("res://scenes/contact_alpha.tscn").instantiate()
+ game.setup_mode=CombatProfile.Mode.ASSISTED_SOLO
+ game.setup_difficulty=CombatProfile.Difficulty.EASY
+ game.setup_seed=1741
  root.add_child(game)
  game.pause_menu.save_settings_on_close=false
  game.encounter.automatic_weapons=false
  game.encounter.automatic_drone=false
- await ticks(65)
+ await ticks(100) # EASY enemy reacts after its explicit 1.3-second decision interval
  check(game.sensors.selected()!=null and game.sensors.selected().contact_id=="ALPHA","mission observes real enemy through existing sensor suite")
  check(game.encounter.enemy.linear_velocity.length()>0 and game.encounter.enemy.command.translation.length()>0,"enemy has independent physical motion and bounded AI command")
  game.crew.position=game.stations[2].position+Vector3(0,0,0.8)
@@ -171,7 +174,7 @@ func run() -> void:
  event(game,"combat_down")
  check(game.encounter.player_launcher.armed,"weapons context toggles fire authorization")
  event(game,"sensor_track")
- await ticks(2)
+ await ticks(150) # explicit tracking/solution acquisition, no instant lock
  var auto_before: bool=game.encounter.automatic_weapons
  event(game,"combat_automation")
  check(game.encounter.automatic_weapons!=auto_before,"manual console exposes optional automation")
@@ -223,6 +226,9 @@ func run() -> void:
  # Fully integrated unoccupied-station battle, no scripted hits or pose edits.
  for scenario in ["supported","unsupported"]:
   game=load("res://scenes/contact_alpha.tscn").instantiate()
+  game.setup_mode=CombatProfile.Mode.FULL_AUTO
+  game.setup_difficulty=CombatProfile.Difficulty.EASY
+  game.setup_seed=1741
   root.add_child(game)
   game.pause_menu.save_settings_on_close=false
   if scenario=="unsupported":

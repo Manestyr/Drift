@@ -1,5 +1,11 @@
 extends "res://scripts/main.gd"
 
+var setup_mode: int = CombatProfile.Mode.MANUAL
+var setup_difficulty: int = CombatProfile.Difficulty.NORMAL
+var setup_seed: int = 0
+var setup_weapon_grant: bool = false
+var setup_drone_grant: bool = false
+var primary_held: bool = false
 var encounter: CombatEncounter
 var mission_status: Label
 var observe_missile: bool = false
@@ -15,9 +21,18 @@ func _tactical_targets() -> void:
 func _ready() -> void:
  super._ready()
  encounter=CombatEncounter.new()
+ encounter.difficulty=setup_difficulty
+ encounter.scenario_seed=setup_seed if setup_seed!=0 else randi_range(1,2147483647)
+ setup_seed=encounter.scenario_seed
+ encounter.weapons_station=stations[2]
+ encounter.drone_station=stations[1]
  encounter.player=ship
  encounter.player_sensors=sensors
  ship.get_parent().add_child(encounter)
+ encounter.set_mode(setup_mode)
+ if setup_mode==CombatProfile.Mode.ASSISTED_SOLO:
+  encounter.grant_role("weapons",setup_weapon_grant)
+  encounter.grant_role("drone",setup_drone_grant)
  for display in tactical_displays:
   (display as CombatDisplay).encounter=encounter
  sensor_targets=encounter.observed_targets()
@@ -58,14 +73,19 @@ func _process(dt: float) -> void:
     outside_camera.global_position=missile.global_position+Vector3(12,7,18)
     outside_camera.look_at(missile.global_position+missile.linear_velocity.normalized()*12,Vector3.UP)
     break
- mission_status.text="KONTAKT ALPHA | %.0f s | %s | AUTO weapons %s / drone %s | P/Options: modes"%[encounter.elapsed,encounter.result,encounter.automatic_weapons,encounter.automatic_drone]
+ mission_status.text="ALPHA | %s | %s | %.0f s | seed %d | P/Options: mission setup"%[CombatProfile.MODE_NAMES[encounter.control_mode],CombatProfile.DIFFICULTY_NAMES[encounter.difficulty],encounter.elapsed,setup_seed]
 
 func _unhandled_input(event: InputEvent) -> void:
  if encounter==null or encounter.result!="ACTIVE": return
+ if event.is_action_released("combat_primary"):
+  primary_held=false
+  return
  var occupied := current_station()
  if occupied!=null and occupied!=station:
   var handled: bool = true
   if event.is_action_pressed("combat_primary"):
+   if primary_held: return
+   primary_held=true
    if occupied==stations[2]: encounter.fire_player()
    else: encounter.drone_command("defense")
   elif event.is_action_pressed("combat_up"):
@@ -82,8 +102,8 @@ func _unhandled_input(event: InputEvent) -> void:
     _update_view()
   elif event.is_action_pressed("combat_recall") and occupied==stations[1]: encounter.drone_command("recall")
   elif event.is_action_pressed("combat_automation") and not outside:
-   if occupied==stations[2]: encounter.automatic_weapons=not encounter.automatic_weapons
-   else: encounter.automatic_drone=not encounter.automatic_drone
+   if occupied==stations[2]: encounter.grant_role("weapons",not encounter.automatic_weapons)
+   else: encounter.grant_role("drone",not encounter.automatic_drone)
   else: handled=false
   if handled: return
  var selected_before := sensors.selected_id
@@ -105,7 +125,7 @@ func _mission_ended(outcome: String) -> void:
  rows.add_child(title)
  var restart := Button.new()
  restart.text="Kontakt Alpha neu starten"
- restart.pressed.connect(func() -> void: get_tree().reload_current_scene())
+ restart.pressed.connect(func() -> void: MissionSetup.launch.call_deferred(get_tree(),setup_mode,setup_difficulty,setup_seed,setup_weapon_grant,setup_drone_grant))
  rows.add_child(restart)
  var free := Button.new()
  free.text="Zum freien Flug"
@@ -116,8 +136,13 @@ func _mission_ended(outcome: String) -> void:
 
 func _leave_pilot() -> void:
  observe_missile=false
+ primary_held=Input.is_action_pressed("combat_primary")
  super._leave_pilot()
 
 func _toggle_exterior() -> void:
  observe_missile=false
  super._toggle_exterior()
+
+func _pause_changed(paused: bool) -> void:
+ primary_held=Input.is_action_pressed("combat_primary")
+ super._pause_changed(paused)

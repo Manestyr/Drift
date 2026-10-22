@@ -1,15 +1,19 @@
 class_name MissileLauncher
 extends RefCounted
 
+var require_solution: bool = false
 var ammunition: Array[int] = [4,4]
 var selected_launcher: int = 0
 var armed: bool = false
-var cooldown: float = 0.0
+var rack_cooldowns: Array[float] = [0.0,0.0]
+var cooldown: float:
+ get: return rack_cooldowns[selected_launcher]
+ set(value): rack_cooldowns[selected_launcher]=value
 var last_status: String = "SAFE"
 var shots: int = 0
 
 func advance(dt: float) -> void:
- cooldown = maxf(0,cooldown-dt)
+ for i in range(2): rack_cooldowns[i]=maxf(0,rack_cooldowns[i]-dt)
 
 func authorize(contact: SensorContact, damage: ComponentDamage) -> bool:
  if damage != null and damage.efficiency("weapons") <= 0:
@@ -19,6 +23,8 @@ func authorize(contact: SensorContact, damage: ComponentDamage) -> bool:
  elif cooldown>0: last_status="RELOADING %.1f s"%cooldown
  elif contact==null or not contact.acquired() or not contact.tracking or not contact.velocity_known:
   last_status="DENIED / SENSOR TRACK"
+ elif require_solution and (contact.solution_progress<1.0 or contact.lock_quality<0.7):
+  last_status="BLOCKED / BUILD LOCK %.0f%%"%(contact.solution_progress*100)
  elif contact.kind!="ship": last_status="DENIED / SHIP TARGET REQUIRED"
  else:
   last_status="READY"

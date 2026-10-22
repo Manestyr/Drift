@@ -67,10 +67,10 @@ func _ready() -> void:
   advanced_panel.find_next_valid_focus().grab_focus())
  rows.add_child(advanced_button)
  var contact_button := Button.new()
- contact_button.text = "Kontakt Alpha / First Contact"
+ contact_button.text = "Kontakt Alpha / Mode + difficulty"
  contact_button.pressed.connect(func() -> void:
   set_paused(false)
-  get_tree().change_scene_to_file("res://scenes/contact_alpha.tscn"))
+  get_tree().change_scene_to_file("res://scenes/mission_setup.tscn"))
  rows.add_child(contact_button)
  var free_button := Button.new()
  free_button.text = "Freier Flug / Free flight"
