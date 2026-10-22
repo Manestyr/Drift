@@ -195,7 +195,10 @@ func solve(command: FlightCommand, basis: Basis, world_velocity: Vector3,
  roll_braking = command.brake_roll and absf(manual_rotation.z) < 0.0001
  if roll_braking:
   alpha.z = -omega.z / RATE_TAU
- var automatic := alpha * moment / torque_limit
+ var automatic := Vector3.ZERO
+ for axis in range(3):
+  if torque_limit[axis] > 0.0:
+   automatic[axis] = alpha[axis] * moment[axis] / torque_limit[axis]
  for axis in range(3):
   if absf(manual_rotation[axis]) > 0.0001:
    automatic[axis] = 0.0

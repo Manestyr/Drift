@@ -1,6 +1,45 @@
-# DRIFT · Milestone 0.2
+# DRIFT · Milestone 0.3 — FIRST CONTACT
 
-Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Neu: drei besetzbare, sicherbare Crewstationen, beobachtungsbasierte Sensorik, simulierte Feuerleitung und zentrale Crew-Schubsicherheit. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
+Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Kontakt Alpha ergänzt ein echtes physikalisches Gefecht mit Gegner, Raketen und Abwehrdrohne. Drei besetzbare, sicherbare Crewstationen, beobachtungsbasierte Sensorik, simulierte Feuerleitung und zentrale Crew-Schubsicherheit. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
+
+## Kontakt Alpha starten
+
+**P / Start/Options → Kontakt Alpha / First Contact** startet das separate Gefecht. Alternativ im Godot-Editor `scenes/contact_alpha.tscn` mit F6 starten oder `godot --path . res://scenes/contact_alpha.tscn`. `scenes/main.tscn` und der normale Projektstart bleiben freier Flug; der Menüpunkt **Freier Flug** führt zurück. Nach Sieg/Niederlage lässt sich die Mission mit dem fokussierten Button neu starten (Enter bzw. A/Kreuz).
+
+Du beginnst auf deiner begehbaren Brücke; ALPHA steht etwa 1,1 km entfernt und bewegt sich physikalisch mit eigenem KI-Piloten. Beide Schiffe besitzen je **zwei Raketenracks mit vier Raketen**. Unbesetzte Waffen-/Drohnenstationen erhalten standardmäßig sichtbare, abschaltbare Unterstützung: automatische Zielverfolgung/Abschüsse und eine Abwehrdrohne. Während du eine Station besetzt, führt ihre Automatik keine neuen Bedienaktionen aus. Bereits fliegende Raketen und gestartete Drohnen laufen weiter. So kannst du allein fliegen oder eine Konsole bedienen.
+
+### Waffenstation (rechts)
+
+| Funktion | Tastatur | Controller Xbox / PlayStation |
+|---|---|---|
+| Station betreten/verlassen | F | A / Kreuz |
+| Kontakt auswählen | Pfeile links/rechts | D-pad links/rechts |
+| Kontakt verfolgen | T | X / Quadrat |
+| Port-/Steuerbord-Rack wechseln | L | D-pad oben |
+| Sicher / scharf | K | D-pad unten |
+| **Rakete abfeuern** | **R** | **RB / R1** |
+| Fliegende eigene Rakete beobachten / zurück | H | LB / L1 |
+| Unterstützung für unbesetzte Station an/aus | O | RS-Klick (in Konsolenansicht) |
+
+Wähle **ALPHA / ship**, aktiviere Tracking, schalte scharf und feuere bei **READY**. Unzureichende/veraltete Messungen, unbekannte Geschwindigkeit, befreundete IFF, leere Racks, Nachladezeit oder ausgefallene Waffen verhindern den Abschuss. Nachladezeit gesund 6 s. Der Bildschirm zeigt Kontaktqualität/-alter, Bestand, Freigabe, fliegende Raketen und verbleibendes Delta-v. Die Feuerleit-ETA ist nur ein vereinfachtes 300-m/s-Modell; die echte Rakete beschleunigt und lenkt mit begrenztem Schub und kann verfehlen. H/LB benutzt eine reine Beobachtungskamera; Schiff und Rakete bleiben physikalisch simuliert. V/Y erhält die bisherige Außenkamera; RS hält dort weiterhin den Kamera-Modifier und schaltet keine Automatik um.
+
+### Sensor-/Drohnenstation (links)
+
+| Funktion | Tastatur | Controller Xbox / PlayStation |
+|---|---|---|
+| Kontaktwahl / Tracking | Pfeile / T | D-pad links/rechts / X bzw. Quadrat |
+| BLUE-D1 starten, wenn angedockt | L | D-pad oben |
+| Nächsten trägerrelativen Wegpunkt zuweisen | K | D-pad unten |
+| Aktuelle inertiale Position halten | H | LB / L1 |
+| **Raketenabwehr an/aus** | **R** | **RB / R1** |
+| Physisch zurückrufen | C | Back / Share |
+| Unterstützung für unbesetzte Station an/aus | O | RS-Klick (Konsolenansicht) |
+
+Es gibt eine Drohne mit drei erreichbaren Wegpunkten, **60 Abwehrgeschossen** und **650 m/s Delta-v**. Sie muss gegnerische Raketen selbst beobachten und trifft mit echten begrenzten Abwehrgeschossen; kein Schutzschild. Rückruf beendet die Abwehr und automatische Neustarts. Die Drohne dockt erst nach tatsächlicher Rückkehr mit kleiner Relativgeschwindigkeit an; Munition und Treibstoff bleiben verbraucht. Bei leerem Treibstoff kann sie driften und den Rückweg verfehlen. Die eigene Drohnenposition kommt über eine kooperative Verbindung; feindliche Ziele bleiben Sensorbeobachtungen.
+
+**Gurt U/B-Kreis, Gefechtsfreigabe J/LS-Klick, Stationswechsel F/A und die komplette Piloteneingabe bleiben erhalten.** Die neuen Kampfbefehle gelten nur an ihrer jeweiligen Konsole. Schäden wirken auf Rumpf, Hauptantrieb, RCS, Sensoren und Waffen. Wenige Treffer machen ein Schiff kampfunfähig; eine Explosion ist nicht nötig. Schaden färbt betroffene Schiffsgeometrie dunkelrot, die Konsole nennt die verbleibende Systemleistung.
+
+Ansichten: [Raketenstation](docs/screenshots/contact-weapons.png), [Drohnenstation](docs/screenshots/contact-drone.png), [echter Raketenflug](docs/screenshots/contact-missile-flight.png), [Gefechtsende](docs/screenshots/contact-victory.png), [Modusauswahl](docs/screenshots/contact-mode-menu.png). Diese bei 1280×720 gerenderten Bilder wurden visuell geprüft; es gab keinen interaktiven Desktop-/Controller-Hardwaretest.
 
 ## Crewstationen und Sicherheit (0.2)
 
@@ -13,7 +52,7 @@ Auf der Brücke stehen links die **Sensor-/Drohnenkonsole**, rechts die **Waffen
 | Kontakt wählen, an taktischen Konsolen | Pfeil links/rechts | D-pad links/rechts |
 | Zielverfolgung an/aus, an taktischen Konsolen | T | X / Quadrat |
 
-Die Sensoranzeige zeigt schiffslokale relative Position, Entfernung, ID, geschätzte relative Geschwindigkeit, Qualität und Messalter. Grün bedeutet erfasst, Orange unzureichend erfasst. Drei passive Testziele werden alle 0,5 s bis 2,5 km beobachtet; die erste Messung kennt noch keine Geschwindigkeit. **T** aktiviert die Verfolgung des gewählten Kontakts; anschließend kann die Waffenstation eine simulierte Abfanglösung aus denselben Beobachtungen anzeigen. Die Waffenplätze sind leer/inert, Starts bleiben gesperrt. Es existieren keine Raketen oder Drohnen.
+Die Sensoranzeige zeigt schiffslokale relative Position, Entfernung, ID, geschätzte relative Geschwindigkeit, Qualität und Messalter. Grün bedeutet erfasst, Orange unzureichend erfasst. Drei passive Testziele werden alle 0,5 s bis 2,5 km beobachtet; die erste Messung kennt noch keine Geschwindigkeit. **T** aktiviert die Verfolgung des gewählten Kontakts; anschließend kann die Waffenstation eine simulierte Abfanglösung aus denselben Beobachtungen anzeigen. Im freien Flug bleiben die Waffenplätze leer/inert und Starts gesperrt. Echte Raketen und Drohnen gibt es ausschließlich in Kontakt Alpha.
 
 **Normalbetrieb begrenzt die insgesamt angeforderte lineare Eigenbeschleunigung auf 3 g**, unabhängig davon, wie viele Schubkanäle gleichzeitig aktiv sind. Nach J ist bis 8 g nur erlaubt, wenn alle anwesenden Crewmitglieder an geeigneten Stationen gesichert sind. Sonst erscheint **HIGH-G DENIED / CREW UNSECURED**. Bestehende Geschwindigkeit, externe Kollisionsimpulse und die bisherigen Drehmomente werden nicht begrenzt. Die realen Triebwerkswerte bleiben unverändert: der Hauptantrieb liefert weiterhin 20 m/s² (ca. 2,04 g), auch bei Gefechtsfreigabe. Mit den aktuellen Antrieben ist deshalb kein sichtbarer 3-g-Leistungsabfall zu erwarten; die Freigabeverweigerung ist dennoch sichtbar.
 
@@ -146,11 +185,12 @@ Der Innenraum bleibt eine separate **lokale World3D** mit vereinfachter künstli
 - `flight_computer.gd`: reine Kraft-/Drehmomentregelung und Bremstelemetrie im festen Tick.
 - `player_input.gd`, `pilot_input.gd`, `input_settings.gd`: lokale Adapter, Aktionen und persistente Einstellungen.
 - `crew_controller.gd`, `crew_station.gd`, `crew/`: lokale Bewegung, Stationsidentität, Crew und zentrale Schubsicherheit.
-- `tactical/`: Sensorbeobachtungen, simulierte Feuerleitung und physische Konsolenanzeigen.
+- `tactical/`: Sensorbeobachtungen, Feuerleitmodell und physische Konsolenanzeigen.
+- `combat/`: separate Mission, feindlicher Pilot, physische Raketen/Drohne/Abwehrgeschosse, Launcher, Komponentenschäden und strukturierte Events.
 - `test_arena.gd`, `exterior_orbit.gd`: statische Referenzen und unabhängige Kameradarstellung.
 - `pause_menu.gd`: Controller-/Maus-/Tastatur-Menüs.
 - `scripts/instruments/`: typisiertes `ShipTelemetry`-Snapshot, gemeinsame Display-Zeichenbasis, drei getrennte Instrumente und wiederverwendbare Cockpit-Montage.
-- `tests/`: sechs unveränderte bestehende Suiten (228 Prüfungen) plus Crew-/Sensor-/Sicherheits-Tests (67); **295 Prüfungen** insgesamt.
+- `tests/`: sechs unveränderte bestehende Suiten (228 Prüfungen) plus Crew-/Sensor-/Sicherheits-Tests (67); **295 bisherige Prüfungen** plus 69 Combat-Checks: **364 Prüfungen** insgesamt.
 
 ```bash
 # Linux x86_64; benötigt curl, unzip und sha512sum:
@@ -162,7 +202,7 @@ Der Bootstrap installiert die offizielle, SHA512-geprüfte 4.7-Version außerhal
 
 [Messwerte und Testergebnisse](docs/validation.md), [Architektur und spätere Schnittstellen](docs/architecture.md).
 
-**Kein interaktiver Desktop- oder Controller-Hardwaretest für 0.2 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte C-Halten/Loslassen, Rückwärtsschub, Retrograde-Abbruch, Instrumente und umbelegte Controller-Kombinationen auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Keine aktiven Waffen, Drohnen, KI, Netzwerk-, Replay- oder Missionssysteme.
+**Kein interaktiver Desktop- oder Controller-Hardwaretest für 0.3 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte C-Halten/Loslassen, Rückwärtsschub, Retrograde-Abbruch, Instrumente und umbelegte Controller-Kombinationen auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Kontakt Alpha ergänzt reale Waffen/Drohne und einen einfachen KI-Gegner; Netzwerk, vollständige Replays und Kampagne bleiben außerhalb des Scopes.
 
 Nächste empfohlene Aufgabe: Desktop-/Controller-Abnahme der Cockpit-Lesbarkeit bei unterschiedlicher Auflösung und Drift, danach gerichtete Crew-Beschleunigungseffekte und umschaltbare lokale Gravitation/Zero-G.
 
@@ -170,4 +210,10 @@ Nächste empfohlene Aufgabe: Desktop-/Controller-Abnahme der Cockpit-Lesbarkeit 
 
 Der Innenraum behält seine separate lokale World3D mit künstlicher Schwerkraft. Er bildet Beschleunigungsstürze, Zero-G, Corioliskräfte und physische Kopplung an den globalen Rumpf noch nicht ab. Individuelle Beschleunigungsdaten am nominellen Crewplatz sind vorbereitet; Kollisionsimpulse und künstliche Schwerkraft fließen noch nicht in diese Lastbeobachtung ein. Keine Bewusstlosigkeit oder Gesundheitssimulation. Sensorik ist ein vereinfachter omnidirektionaler Test mit begrenzter Reichweite/Abtastrate/Quantisierung, ohne Sichtlinienprüfung oder reale Signaturphysik. Keine GPU-Performance-Messung; primitive Geometrie und fünf Display-Viewports insgesamt.
 
-Empfohlene Reihenfolge: **0.2.1:** gemeinsamer Desktop-/Controller-Abnahmetest aller Stationswege und besser kalibrierte Interieur-/Crewplatz-Koordinaten; **0.3:** Sensor-Sichtlinien/Signaturen und autoritative Stationsbefehle; danach erst ein begrenzter Raketenprototyp, später KI-/Koop-Besetzung. Hoch-g-Sequenzen mit Beschleunigungsliegen und begrenzter fiktiver Unterstützung bleiben späterer Scope (siehe Architektur), ohne medizinische Anwendungen nachzubilden.
+Die Innenraum-/Crewplatz-Koordinaten und Stationswege bleiben Kandidaten für weitere Desktop-Abnahme. Hoch-g-Sequenzen mit Beschleunigungsliegen und begrenzter fiktiver Unterstützung sind weiterhin späterer Scope (siehe Architektur).
+
+## Grenzen und nächste Schritte (0.3)
+
+Kontakt Alpha ist eine einzelne Testmission mit einfacher Standoff-/Ausweich-KI, optimistischen omnidirektionalen Sensoren, Szenario-IFF und groben Trefferzonen. Keine Sichtlinien-/Signaturphysik, Gegenmaßnahmen, Explosionen, Treibstoff-Massenänderung oder detaillierten Thruster-Angriffspunkte. Die Raketensucher und Drohnensensoren arbeiten genauer/schneller als die alten Freiflug-Testinstrumente; sie besitzen dennoch Messalter, begrenzte Reichweite und geschätzte Geschwindigkeit. Abwehrgeschütze haben idealisierte Richtmechanik. Gleichzeitige Fehlschüsse, leere Magazine und Treibstoffmangel sind möglich; die Mission erzwingt keinen Sieg durch geskriptete Treffer.
+
+Die getrennte künstliche Innenraum-Schwerkraft aus 0.2 bleibt bestehen. Automatik ist keine versteckte zusätzliche Crew und erhöht keine Schubfreigaben. Noch kein Multiplayer, Replay-Player, Kampagne oder Gesundheitssystem. Als Nächstes: interaktiver Desktop-/Controller-Abnahmetest mit manuellem Abschuss, Rückruf und einem absichtlich ausgewichenen Angriff; anschließend Sensor-Sichtlinien, Trefferortqualität und Abwehr-Balancing verbessern.

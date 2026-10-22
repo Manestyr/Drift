@@ -439,7 +439,7 @@ func _build_station(room: Node3D, id: String, role: String, at: Vector3) -> void
  viewport.gui_disable_input = true
  viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
  add_child(viewport)
- var display := TacticalDisplay.new()
+ var display := _new_tactical_display()
  display.sensors = sensors
  display.fire_control = fire_control
  display.safety = crew_safety
@@ -515,3 +515,6 @@ func _tactical_targets() -> void:
   add_child(target)
   _box(target,Vector3.ZERO,Vector3(18,12,25),Color(0.38,0.3,0.2))
   sensor_targets.append(target)
+
+func _new_tactical_display() -> TacticalDisplay:
+ return TacticalDisplay.new()

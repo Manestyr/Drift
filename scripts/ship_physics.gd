@@ -9,6 +9,7 @@ signal state_sampled(tick: int)
 var negative_force_limits: Vector3 = Vector3.ZERO
 var positive_force_limits: Vector3 = Vector3.ZERO
 @export var torque_limits_nm := Vector3(5284000.0, 5380000.0, 296000.0)
+var damage_model: ComponentDamage
 var crew_safety: CrewSafety
 var computer := FlightComputer.new()
 var effective_inertia: Vector3 = Vector3.ZERO
@@ -41,13 +42,15 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
   computer.attitude_hold = false
   computer.reset_advanced()
   reset_requested = false
+ var main_health := damage_model.efficiency("main") if damage_model != null else 1.0
+ var rcs_health := damage_model.efficiency("rcs") if damage_model != null else 1.0
  effective_inertia = Vector3.ONE / state.inverse_inertia
- applied_main_thrust_n = clampf(command.main_engine, 0.0, 1.0) * main_thrust_n
+ applied_main_thrust_n = clampf(command.main_engine, 0.0, 1.0) * main_thrust_n * main_health
  # Main engine gets priority; combined forward translation never exceeds its rating.
- negative_force_limits = Vector3(rcs_thrust_n, rcs_thrust_n, minf(forward_rcs_thrust_n, main_thrust_n - applied_main_thrust_n))
- positive_force_limits = Vector3(rcs_thrust_n, rcs_thrust_n, reverse_thrust_n)
+ negative_force_limits = Vector3(rcs_thrust_n*rcs_health, rcs_thrust_n*rcs_health, minf(forward_rcs_thrust_n*rcs_health, main_thrust_n*main_health - applied_main_thrust_n))
+ positive_force_limits = Vector3(rcs_thrust_n*rcs_health, rcs_thrust_n*rcs_health, reverse_thrust_n*rcs_health)
  computer.solve(command, state.transform.basis, state.linear_velocity,
-  state.angular_velocity, effective_inertia, mass, rcs_thrust_n, torque_limits_nm, negative_force_limits, positive_force_limits)
+  state.angular_velocity, effective_inertia, mass, rcs_thrust_n*rcs_health, torque_limits_nm*rcs_health, negative_force_limits, positive_force_limits)
  var force_local := computer.force_local
  force_local += Vector3.FORWARD * applied_main_thrust_n
  if crew_safety != null:

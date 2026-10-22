@@ -23,11 +23,11 @@ func _ready() -> void:
  process_mode = Node.PROCESS_MODE_ALWAYS
  layer = 10
  panel = PanelContainer.new()
- panel.position = Vector2(340, 105)
+ panel.position = Vector2(340, 45)
  panel.custom_minimum_size = Vector2(600, 410)
  add_child(panel)
  var rows := VBoxContainer.new()
- rows.add_theme_constant_override("separation", 14)
+ rows.add_theme_constant_override("separation", 8)
  panel.add_child(rows)
  var title := Label.new()
  title.text = "PAUSED — Input settings"
@@ -66,6 +66,18 @@ func _ready() -> void:
   advanced_panel.show()
   advanced_panel.find_next_valid_focus().grab_focus())
  rows.add_child(advanced_button)
+ var contact_button := Button.new()
+ contact_button.text = "Kontakt Alpha / First Contact"
+ contact_button.pressed.connect(func() -> void:
+  set_paused(false)
+  get_tree().change_scene_to_file("res://scenes/contact_alpha.tscn"))
+ rows.add_child(contact_button)
+ var free_button := Button.new()
+ free_button.text = "Freier Flug / Free flight"
+ free_button.pressed.connect(func() -> void:
+  set_paused(false)
+  get_tree().change_scene_to_file("res://scenes/main.tscn"))
+ rows.add_child(free_button)
  _build_advanced_panel()
  _build_computer_panel()
  status = Label.new()

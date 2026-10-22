@@ -7,6 +7,8 @@ var selected_id: String = ""
 var tracking_enabled: bool = false
 var max_range_m: float = 2500.0
 var cadence_seconds: float = 0.5
+var measurement_resolution_m: float = 5.0
+var enabled: bool = true
 var elapsed: float = 0.0
 var previous_positions: Dictionary = {}
 var previous_ticks: Dictionary = {}
@@ -14,6 +16,8 @@ var previous_ticks: Dictionary = {}
 func sample(targets: Array[Node3D], observer: Transform3D, velocity: Vector3, tick: int, dt: float) -> void:
  for contact in contacts:
   contact.age_seconds += dt
+ if not enabled:
+  return
  elapsed += dt
  if elapsed < cadence_seconds:
   return
@@ -21,6 +25,7 @@ func sample(targets: Array[Node3D], observer: Transform3D, velocity: Vector3, ti
  elapsed = 0.0
  var next: Array[SensorContact] = []
  for target in targets:
+  if not is_instance_valid(target): continue
   var offset := target.global_position - observer.origin
   var distance := offset.length()
   if distance > max_range_m or distance < 1.0:
@@ -28,16 +33,20 @@ func sample(targets: Array[Node3D], observer: Transform3D, velocity: Vector3, ti
   var id := String(target.name)
   var contact := SensorContact.new()
   contact.contact_id = id
-  # Range-dependent 5m quantization: an explicit prototype observation error.
-  var measured := target.global_position.snapped(Vector3.ONE * 5.0)
+  # Configurable quantization; default 5 m for the original free-flight sensor.
+  var measured := target.global_position.snapped(Vector3.ONE * measurement_resolution_m)
   contact.relative_position = observer.basis.inverse() * (measured - observer.origin)
   contact.quality = clampf(1.0 - distance / max_range_m * 0.6, 0.1, 1.0)
   contact.observed_tick = tick
+  contact.observed_position_world = measured
+  contact.kind = String(target.get_meta("kind","ship"))
+  contact.team = int(target.get_meta("team",-1))
   contact.tracking = tracking_enabled and selected_id == id
   if previous_positions.has(id):
    var measurement_dt := float(tick - int(previous_ticks[id])) / float(Engine.physics_ticks_per_second)
    contact.relative_velocity = observer.basis.inverse() * ((measured - previous_positions[id]) / maxf(measurement_dt, interval) - velocity)
    contact.velocity_known = true
+   contact.observed_velocity_world = (measured-previous_positions[id])/maxf(measurement_dt,interval)
   previous_positions[id] = measured
   previous_ticks[id] = tick
   next.append(contact)
