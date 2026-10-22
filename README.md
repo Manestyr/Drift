@@ -1,93 +1,109 @@
-# DRIFT · Milestone 0.1.1
+# DRIFT · Milestone 0.1.2
 
-Spielbarer Desktop-Prototyp mit Gamepad-Unterstützung für **Godot 4.7 Stable / GDScript**, ohne externe Assets, Plugins oder Dienste. Projekt in Godot über `project.godot` importieren und **F5 (Projekt starten)** verwenden; alternativ `godot --path .`. Im laufenden Spiel setzt F5 das Schiff zurück.
+Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben und abschaltbarer Flugcomputer. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
 
-## Erster Flug
+## Start und erster Flug
 
-Du startest auf der Brücke eines 36 m langen Schiffs. Mit WASD und Maus umsehen/laufen. Vor dir befindet sich der türkisfarbene Pilotensitz: annähern, **E**, dann **Shift** halten für Hauptschub. Loslassen: das Schiff fliegt mit unveränderter Geschwindigkeit weiter. Mit Pfeiltasten drehen; die Weltgeschwindigkeit dreht sich dabei nicht mit. **V** zeigt das Schiff und die statischen Raummarker von außen. **E** verlässt den Sitz auch aus der Außenansicht. Zurück im Innenraum mit S Richtung Korridor und Maschinenraum laufen.
+`project.godot` in Godot **4.7 Stable** importieren, F5 im Editor drücken; alternativ `godot --path .`. Du startest auf der Brücke. Vorwärts zum türkisfarbenen Pilotensitz gehen und **F** drücken. **W** gibt sanften Vorwärts-RCS, **linke Maustaste** den stärkeren Hauptschub. Mausbewegungen fordern begrenzte Nick-/Gierdrehmomente an. Standardmäßig bremst die Rotationsstabilisierung anschließend mit RCS ab; **T** schaltet sie aus. Ohne Assist dreht das Schiff nach dem Loslassen weiter. Lineare Geschwindigkeit bleibt ohne angeforderte Bremsung erhalten.
 
-| Kontext | Steuerung |
+Zum Überprüfen: W loslassen, V für Außenansicht, G für das Orientierungsgitter. Maus orbitieren lassen, Mausrad zum Zoomen. X halten, um relativ zum gewählten inertialen Bezugssystem zu bremsen. F verlässt den Sitz auch von außen. Zu Fuß führt S von der Brücke zum Korridor und Maschinenraum.
+
+## Maus und Tastatur
+
+| Aktion | Eingabe |
 |---|---|
 | Zu Fuß | WASD, Mausblick |
-| Sitz | E innerhalb von 3 m betreten; E verlassen |
-| Pilot: RCS Translation | W/S vor/zurück, A/D seitlich, Space/Ctrl hoch/runter |
-| Pilot: Hauptantrieb | Shift halten |
-| Pilot: Rotation | Pfeile: Nick/Gier, Q/R: Roll |
-| Ansicht | V Außenkamera an/aus; auch zu Fuß nutzbar |
-| Maus | Esc freigeben/einfangen; freigegeben stoppt die Schubeingabe |
-| Debug | F3 Menü, F5 Position und beide Geschwindigkeiten zurücksetzen |
+| Station betreten/verlassen | **F** innerhalb von 3 m |
+| Pilot Nick/Gier | **Maus** (zusätzlich Pfeiltasten möglich) |
+| RCS vor/zurück, seitlich | **W/S**, **A/D** |
+| RCS hoch/runter | **Space/Shift** |
+| Rollen | **Q/E** |
+| Hauptantrieb | **linke Maustaste** halten |
+| Alle relativen Geschwindigkeitskomponenten bremsen | **X** halten |
+| Lokale Vorwärts-/Rückwärtskomponente bremsen | **Strg+W** halten |
+| Lokale Seitwärtskomponente bremsen | **Strg+A** halten |
+| Lokale Vertikalkomponente bremsen | **Strg+Space** halten |
+| Lokale Rollrate bremsen | **Strg+R** halten |
+| Automatische Rotationsstabilisierung an/aus | **T** |
+| Aktuelle Lage halten / lösen | **H** |
+| Inertialen Bremsbezug wechseln | **F7** oder Flugcomputer-Menü |
+| Außenkamera / Orientierungsgitter | **V / G** |
+| Außenkamera orbitieren / zoomen | Maus / Mausrad |
+| Maus freigeben/einfangen | **Esc** |
+| Pause und Einstellungen | **P** |
+| Debug-Menü / Schiff zurücksetzen | **F3 / F5** im laufenden Spiel |
 
-Die Außenansicht behält bei besetztem Sitz die Flugsteuerung. Es gibt weder Geschwindigkeitsbegrenzung noch automatische Linear- oder Winkeldämpfung. Gegensteuern ist nötig! F5 verändert nicht die lokale Crewposition; die Raumreferenzobjekte bleiben statisch.
+**Modifier haben Vorrang:** Während Strg gehalten wird, werden normale Tastatur-Schub-/Rotationsbefehle einschließlich Hauptantrieb und Maus-Drehmoment unterdrückt. W/A/Space/R wählen dann ausschließlich Bremsachsen. Gepufferte Mausbewegung wird verworfen. Beim Sitz-, Kamera-, Geräte- und Pausewechsel wird die virtuelle Flugmaus ebenfalls zurückgesetzt. Eine Mausbewegung dreht niemals direkt den Schiffskörper: Sie lenkt einen begrenzten virtuellen Stick, der in etwa 0,33 s zur Mitte zurückkehrt. Nur die Crew-Kamera und Außenkamera werden direkt bewegt.
 
-## Controller (Xbox / PlayStation)
+## Controller
 
-Ein von Godot erkanntes Xbox- oder PlayStation-kompatibles Gamepad genügt. Maus/Tastatur bleiben nutzbar; die letzte bewusste Eingabe wählt die Quelle und schaltet die HUD-Hinweise um. Sticks unter der Deadzone und kleine Mausbewegungen wechseln die Quelle nicht. Es werden keine Kamerakräfte oder Flugimpulse beim Gerätewechsel erzeugt.
-
-| Kontext | Controller |
+| Aktion | Xbox / PlayStation |
 |---|---|
 | Zu Fuß bewegen / umsehen | Linker / rechter Stick |
 | Interaktion, Sitz betreten/verlassen | A / Kreuz |
-| Pilot Pitch und Yaw | Linker Stick: hoch/runter = Pitch, links/rechts = Yaw |
-| Pilot seitwärts / vertikal | Rechter Stick: rechts/links bzw. hoch/runter |
+| Pilot Pitch/Yaw | Linker Stick |
+| Pilot seitwärts / vertikal | Rechter Stick |
 | Hauptschub vorwärts, proportional | RT / R2 |
-| Gegenschub rückwärts, proportional | LT / L2 (**vorhandener RCS**, maximal 240.000 N) |
-| Roll links / rechts | LB / L1 bzw. RB / R1 |
-| Außenkamera an/aus | Y / Dreieck |
-| Pause und Einstellungen | Start / Options; Tastatur: P |
-| Menü bedienen | D-Pad oder linker Stick: Navigation; links/rechts: Regler; A/Kreuz: bestätigen |
-| Menü schließen | Start/Options, B/Kreis, P oder Escape |
+| Rückwärts-RCS, proportional | LT / L2 |
+| Rollen links / rechts | LB / L1 bzw. RB / R1 |
+| Außenkamera | Y / Dreieck |
+| Flugcomputer, Standardlayout | D-Pad: **unten bremsen halten**, **oben Rotation stabilisieren**, **links Lage halten**, **rechts Gitter** |
+| Außenkamera orbitieren / zoomen | **RS-Klick halten** + rechter Stick / Trigger |
+| Pause und Einstellungen | Start / Options |
+| Menü bedienen | D-Pad oder linker Stick; A/Kreuz bestätigen; B/Kreis zurück |
 
-Das Menü enthält Fortsetzen, Stick-Deadzone (0,05–0,40, Standard **0,15 radial**), Stick-Empfindlichkeit (0,25–2,00), Y-Invertierung, Schiffsreset und Beenden. Änderungen gelten sofort und werden beim Fortsetzen unter `user://input_settings.cfg` gespeichert. Empfindlichkeit betrifft Umsehen und Pitch/Yaw; Y-Invertierung betrifft Controller-Kamera und Pitch, nicht Translation oder Maus. Trigger haben eine separate Deadzone von 0,05. Teilweiser Stick-/Triggerausschlag bleibt proportional; diagonale RCS- und Rotationskommandos überschreiten nicht den bestehenden Gesamtwert.
+Die normalen Flugachsen bleiben vollständig erhalten. Nur der ausdrücklich gehaltene RS-Klick benutzt rechten Stick und Trigger zur Außenkamera-Bedienung; danach müssen diese zur Neutralstellung zurück, bevor sie wieder Schub geben. Linker Stick und Rolltasten bleiben dabei Flugsteuerung.
 
-Pause hält **die gesamte Simulation** an. Neutrale Sticks/Trigger erzeugen keine neue Kraft und kein Drehmoment; außerhalb der Pause bleibt vorhandene lineare und rotatorische Trägheit erhalten. Die Außenkamera sperrt Laufen/Umsehen zu Fuß, behält aber bei besetztem Sitz die Flugsteuerung. Reset ist im Pausemenü vollständig ohne Tastatur erreichbar. Mehrere gleichzeitig bediente Controller werden noch nicht getrennten Spielern zugeordnet.
+Im Pausemenü unter **Flight computer / Controller bindings** sind ein alternatives D-Pad-Layout (oben/unten und links/rechts vertauscht) sowie die Bremsfunktion des Controller-Bremsknopfs wählbar: Gesamtgeschwindigkeit, lokale Z-/X-/Y-Komponente oder Rollrate. Dort lassen sich auch Rotationsstabilisierung, Lagehaltung und Bezugsrahmen einstellen. Start/Options oder P setzt fort; B/Kreis beziehungsweise Esc geht zurück.
 
-**Hardwaretest offen:** Hier war kein echter Controller und kein grafischer Desktop verfügbar. Die automatisierten Tests injizieren Godot-Controllerereignisse; sie ersetzen keinen USB-/Bluetooth-, Treiber- oder Ergonomietest. Auf echter Hardware zuerst Neutralstellung, beide Trigger einzeln, alle sechs Flugachsen, Gerätewechsel sowie D-Pad/Bestätigung im Pausemenü prüfen. Bei unbekannten Geräten kann eine SDL-Controllerzuordnung erforderlich sein.
+Weitere Einstellungen: radiale Stick-Deadzone **0,15** (0,05–0,40), Empfindlichkeit (0,25–2,00) und Y-Invertierung für Controller-Kamera/Pitch. Trigger haben eine separate Deadzone von 0,05; die Menünavigation eine höhere Betätigungsschwelle. Die letzte bewusste Eingabe wählt Maus/Tastatur oder Gamepad und passende HUD-Hinweise. Sub-Deadzone-Stickdrift, neutrale Trigger und kleine Mausbewegungen stehlen die Quelle nicht. Einstellungen werden beim Fortsetzen in `user://input_settings.cfg` gespeichert. Reset und Beenden sind ohne Tastatur erreichbar.
 
-## Simulation und Anzeigen
+## Physik und Flugcomputer
 
-60 Hz fester Physiktick, Meter/Sekunden/Kilogramm/Newton. 120.000 kg Masse, 2.400.000 N Hauptschub = **20 m/s² ≈ 2,04 g**; RCS 240.000 N, maximales RCS-Drehmoment 1.800.000 Nm. Translation und Rotation sind jeweils auf einen normierten Gesamtvektor begrenzt, nicht die Geschwindigkeit. Hauptantrieb und RCS addieren sich. Kräfte und Drehmomente werden körperlokal angefordert und in Weltachsen an Godots `PhysicsDirectBodyState3D` übergeben. Der RigidBody integriert Bewegung; nur der explizite Debug-Reset setzt seine Transformation.
+60-Hz-Physik, m/s/kg/N. Masse **120.000 kg**; Hauptschub **2.400.000 N = 20 m/s² ≈ 2,04 g**; RCS-Translation insgesamt **240.000 N = 2 m/s²**. LT/L2 nutzt den vorhandenen Rückwärts-RCS, keinen rückwärts gerichteten Hauptantrieb. Keine Geschwindigkeitsbegrenzung und keine künstliche Linear-/Winkeldämpfung.
 
-HUD: Betrag der Weltgeschwindigkeit, Geschwindigkeit in lokalen Schiffsachsen (+X rechts, +Y oben, −Z vorwärts), tatsächlich zuletzt simulierter Hauptschub, Eigenbeschleunigung, g und geglättete anhaltende g-Last. Das Vignettenmaximum ist eine **Darstellungsbegrenzung**, keine physiologische g-Grenze. `g_effect_gain` und `g_effect_response_seconds` sind im Main-Inspector parametrierbar. Keine Blitze, kein Bewusstseins-/Schadensmodell. `ShipPhysics.acceleration_local` hält die Richtung für spätere Physiologie bereit.
+Das homogene 7 × 5 × 36-m-Rumpfmodell ergibt Trägheitsmomente **13.210.000 / 13.450.000 / 740.000 kg·m²**. Drehmomentgrenzen **5.284.000 / 5.380.000 / 296.000 Nm** ergeben maximal **0,4 rad/s²** um jede einzelne Hauptachse. Sie repräsentieren eigene paarweise arbeitende Rotations-RCS; Translation und Rotation haben getrennte Budgets. Ein normierter Gesamtvektor begrenzt gleichzeitige Achsenanforderungen. Physikzustände werden ausschließlich über Godots Kräfte-/Drehmoment-API integriert; nur der ausdrücklich ausgelöste Debug-Reset setzt Pose und Geschwindigkeiten.
 
-## Aufbau
+Die vier getrennten Funktionen sind:
 
-- `scenes/main.tscn`: startbare Hauptszene; Aufbau aus Godot-Primitiven zur Laufzeit.
-- `scripts/main.gd`: Szenenaufbau, Kameras, UI, Interaktionsrouting und Komposition.
-- `scripts/ship_physics.gd`: unabhängiger RigidBody, Kräfte, Telemetrie, Tick und Reset.
-- `scripts/flight_command.gd`: kleiner lokaler Befehlsdatensatz ohne Input-Abhängigkeit.
-- `scripts/pilot_input.gd`: Flug-Eingabeadapter mit Keyboard-Fallback.
-- `scripts/player_input.gd`: lokale Eingabequelle, radiale Deadzone, Gerätewechsel und kontextabhängige Controller-Kommandos.
-- `scripts/input_settings.gd`: persistente Controller-Einstellungen.
-- `scripts/pause_menu.gd`: per Controller/Maus/Tastatur bedienbare Pause und Einstellungen.
-- `scripts/crew_controller.gd`: lokale First-Person-Bewegung mit künstlicher Schwerkraft.
-- `scripts/crew_station.gd`: Belegung und Signale einer modularen Station.
-- `tests/`: echte Physik- und Szenenablauftests ohne Testframework.
-- `docs/architecture.md`: Referenzsysteme und geplante Schnittstellen.
-- `tools/check.sh`: Import, Start und alle drei Tests; bricht bei Fehlern ab.
+- **Rotationsstabilisierung:** bremst unbediente Rotationsachsen über begrenztes Gegenmoment. Standardmäßig im Spiel eingeschaltet; der eigenständige Body startet für freien Newtonschen Flug ausgeschaltet.
+- **Achsenbremsung:** reduziert ausgewählte lokale relative Geschwindigkeitskomponenten. Strg+R reduziert nur die Rollrate.
+- **Gesamtbremsung:** reduziert die Geschwindigkeit relativ zum ausgewählten **inertialen** Rahmen. Auswahl: unbewegte Arena oder virtueller Konvoi mit konstant −20 m/s entlang Welt-Z. Der Konvoi ist ein mathematischer Rahmen, kein sichtbares verfolgtes Objekt.
+- **Lage halten:** H erfasst die aktuelle Weltorientierung. Ein sättigender Quaternion-PD-Regler führt dorthin zurück und stoppt die Winkelgeschwindigkeit. Bewusste manuelle Rotation löst die Lagehaltung, statt unbemerkt gegen das Ziel zu arbeiten.
 
-Die Input Map steht in `project.godot` und kann im Editor angepasst werden. Keine Autoloads oder globalen Game-State-Singletons.
+Manueller Schub hat auf seiner Achse Vorrang, Hauptschub unterdrückt automatische Z-Bremsung. Die verbleibende RCS-Leistung steht orthogonalen Bremsachsen zur Verfügung; manuelle Leistung wird nicht zugunsten des Computers abgeschwächt. Nach Loslassen der Bremsanforderung gibt es keine automatische Geschwindigkeitsbremsung. Lagehaltung und Rotationsstabilisierung sind unabhängig abschaltbar. Pause friert die gesamte Simulation ein.
 
-## Prüfen
+HUD: Weltgeschwindigkeitsbetrag, lokaler Geschwindigkeitsvektor, Vektor relativ zum gewählten Rahmen, Pitch-/Yaw-/Rollrate, zuletzt simulierter Hauptschub, lineare Eigenbeschleunigung/g, Assist-/Lagehalte-/Bremsstatus, verfügbare Brems-RCS-Leistung, Fortschritt und geschätzte Zeit bis **0,05 m/s** Restgeschwindigkeit. ETA gilt für freie RCS-Leistung und ändert sich bei manuellen Eingriffen, Kollisionen oder Rahmenwechsel. Ein zentriertes Vorwärtssymbol kennzeichnet die Schiffsnase (−Z).
+
+Die parametrierbare g-Vignette bleibt erhalten. Keine Blitze, physiologische Grenzwerte oder Schadensregeln; lineare Schub-Eigenbeschleunigung schließt derzeit weder Kollisionsimpulse noch Winkelbelastung ein.
+
+## Arena und Referenzsysteme
+
+72 deterministisch verteilte, unterschiedlich große Low-Poly-Asteroiden mit passenden statischen Kugelkollisionen. Ein großes kollidierendes Stationswrack liegt 320 m seitlich und 650 m vor dem Start. Der gerade Startkorridor bleibt frei. Nicht kollidierende Distanzmarken alle 100 m und Richtungsbeschriftungen sowie ein zuschaltbares 100-m-Raster helfen bei Parallaxe und Orientierung. Das Raster liegt fest 60 m unter der Welt-Startposition und bleibt beim Flug zurück. Die Außenkamera orbitiert im Weltkoordinatensystem um die aktuelle Schiffsposition und zoomt zwischen 24 m und 6 km.
+
+Der Innenraum bleibt eine separate **lokale World3D** mit vereinfachter künstlicher Schwerkraft. Lokale Crewpositionen sind unabhängig von der globalen RigidBody-Bewegung. Keine Beschleunigungs-/Corioliseffekte, kein EVA, kein Zero-G und kein Blick aus dem lokalen Innenraum in die äußere Arena. Pilot- und Außenkamera zeigen den tatsächlichen globalen Schiffskörper. Diese Grenze wird durch den Flugcomputer nicht verändert.
+
+## Projekt und Tests
+
+- `scenes/main.tscn`, `scripts/main.gd`: Einstieg, Geometrie, Interaktions-/Kamera-Kontexte und HUD.
+- `ship_physics.gd`, `flight_command.gd`: Physikzustand und geräteunabhängiger Befehlsdatensatz.
+- `flight_computer.gd`: reine Kraft-/Drehmomentregelung und Bremstelemetrie im festen Tick.
+- `player_input.gd`, `pilot_input.gd`, `input_settings.gd`: lokale Adapter, Aktionen und persistente Einstellungen.
+- `crew_controller.gd`, `crew_station.gd`: lokale Crewbewegung und exklusive Stationsbelegung.
+- `test_arena.gd`, `exterior_orbit.gd`: statische Referenzen und unabhängige Kameradarstellung.
+- `pause_menu.gd`: Controller-/Maus-/Tastatur-Menüs.
+- `tests/`: bisherige drei Testsuiten plus Flugcomputer-/Manöver-/Eingabekonflikt-/Arena-Tests.
 
 ```bash
-GODOT_BIN=/pfad/zu/godot-4.7 ./tools/check.sh
+# Linux x86_64; benötigt curl, unzip und sha512sum:
+./tools/bootstrap_godot.sh
+GODOT_BIN=/workspace/tools/godot-4.7/Godot_v4.7-stable_linux.x86_64 ./tools/check.sh
 ```
 
-Auf Linux x86_64 installiert `./tools/bootstrap_godot.sh` die offizielle, per SHA512 geprüfte Version außerhalb des Checkouts nach `/workspace/tools/godot-4.7`. Benötigt werden `curl`, `unzip` und `sha512sum`.
+Der Bootstrap installiert die offizielle, SHA512-geprüfte 4.7-Version außerhalb des Checkouts. Der Prüflauf importiert das Projekt, startet die Hauptszene und führt alle Suiten mit echter Godot-Physik aus. Die neue Manöversuite nutzt `--fixed-fps 60` für reproduzierbare, beschleunigt ausgeführte 60-Hz-Simulationsschritte; gemessene Zeiten sind **Simulationszeit**.
 
-Mit Godot **4.7.stable.official.5b4e0cb0f** ausgeführt: Headless-Import und 120-Frame-Start sowie die bisherigen 7 Flugphysikprüfungen, 10 Ablaufprüfungen und 63 zusätzliche Controller-Prüfungen (**80 bestanden insgesamt**). Den aktuellen verbindlichen Ergebnisstand enthält `docs/validation.md`. Die Tests verwenden Godots echte Physikframes, keine selbst geschriebene Ersatzintegration. Das Szenenskript prüft Laufen, Kollisionen, Stationswechsel, Eingabe, Kameras und Trägheit nach dem Verlassen. Ein grafischer Desktop-Spieltest ist zusätzlich empfohlen.
+[Messwerte und Testergebnisse](docs/validation.md), [Architektur und spätere Schnittstellen](docs/architecture.md).
 
-## Bekannte Einschränkungen
+**Kein neuer grafischer Desktop- oder Controller-Hardwaretest für 0.1.2 wurde hier durchgeführt.** Der Nutzer hat einen erfolgreichen Desktop-Test des vorherigen Stands gemeldet. Für diese Version bitte Mausgefühl, Kamera/Zoom, Blickwechsel, Controller-Treiber, Neutralstellung und Menüs auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Keine Waffen, Drohnen, KI, Netzwerk-, Replay- oder Missionssysteme.
 
-- Der Innenraum liegt bewusst in einer **separaten lokalen World3D** mit künstlicher Schwerkraft. Die Crew wird nicht global mitbewegt; ihre lokale Pose ist der Zustand. Globale Position kann über `ship.global_transform * crew.position` abgeleitet werden. Keine Beschleunigungs-/Corioliswirkung, kein Zero-G, EVA oder Blick aus dem lokalen Innenraum in die äußere Welt. Pilot- und Außenkamera zeigen dagegen den tatsächlich fliegenden globalen Schiffskörper.
-- Brücke, offener Korridor und Maschinenraum sind einfache kollidierende Boxen. Keine Türen, Animationen, beweglichen Scheiben oder detailreichen Assets. Pilotensicht hat nur eine Cockpit-Unterkante.
-- G-Anzeige berücksichtigt bisher angeforderten Antrieb, keine Kollisionsimpulse oder Belastung durch Winkelbeschleunigung. Geglättete Last ist nur visuelle Rückmeldung.
-- Außenkamera folgt dem Schiff ohne freie Orbitsteuerung. Referenzmarker stehen alle 100 m bis 1 km; weitere Raummarker sind deterministisch verteilte sichtbare Boxen ohne Kollision.
-- Keine Netzwerk-/Replay-Implementierung, keine Determinismusgarantie über Physikbackends. Kein Flight Assist, Audio, Kampf, KI oder Export-Build.
-
-## Empfohlene Reihenfolge
-
-1. **0.2:** Referenzrahmen-Abstraktion für Crew, gerichtete Beschleunigungseffekte und umschaltbare künstliche Gravitation/Zero-G; Tests für Übergänge.
-2. **0.3:** Weitere Stationsadapter und Sensorprototyp, dann ein einzelnes kurzes Kampfexperiment.
-3. **0.4:** Autoritativer Host und 1–3 LAN-Spieler mit synchronisierten Kommandos/Zuständen.
-4. Erst danach KI für freie Stationen, Raketen/Drohnen, Damage und Ereignisaufzeichnung/Replays; später Hangar, Missionen und Kampagne.
+Nächste empfohlene Aufgabe: Desktop-/Controller-Abnahme des neuen Fluggefühls und der visuellen Referenzen, danach gerichtete Crew-Beschleunigungseffekte und umschaltbare lokale Gravitation/Zero-G.

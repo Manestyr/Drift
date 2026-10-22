@@ -4,7 +4,9 @@ extends RigidBody3D
 signal state_sampled(tick: int)
 @export var main_thrust_n: float = 2400000.0
 @export var rcs_thrust_n: float = 240000.0
-@export var rcs_torque_nm: float = 1800000.0
+@export var torque_limits_nm := Vector3(5284000.0, 5380000.0, 296000.0)
+var computer := FlightComputer.new()
+var effective_inertia: Vector3 = Vector3.ZERO
 var command := FlightCommand.new()
 var acceleration_world: Vector3 = Vector3.ZERO
 var applied_main_thrust_n: float = 0.0
@@ -20,7 +22,8 @@ func _init() -> void:
  linear_damp = 0.0
  angular_damp = 0.0
  can_sleep = false
- inertia = Vector3(11000000.0, 11000000.0, 2200000.0)
+ # Uniform 7 x 5 x 36 m hull; kg m². Explicit principal axes.
+ inertia = mass / 12.0 * Vector3(5.0*5.0 + 36.0*36.0, 7.0*7.0 + 36.0*36.0, 7.0*7.0 + 5.0*5.0)
  collision_layer = 1
  collision_mask = 1
 
@@ -30,13 +33,17 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
   state.linear_velocity = Vector3.ZERO
   state.angular_velocity = Vector3.ZERO
   command.clear()
+  computer.attitude_hold = false
   reset_requested = false
- var force_local := command.translation.limit_length() * rcs_thrust_n
+ effective_inertia = Vector3.ONE / state.inverse_inertia
+ computer.solve(command, state.transform.basis, state.linear_velocity,
+  state.angular_velocity, effective_inertia, mass, rcs_thrust_n, torque_limits_nm)
+ var force_local := computer.force_local
  applied_main_thrust_n = clampf(command.main_engine, 0.0, 1.0) * main_thrust_n
  force_local += Vector3.FORWARD * applied_main_thrust_n
  var force_world := state.transform.basis * force_local
  state.apply_central_force(force_world)
- state.apply_torque(state.transform.basis * command.rotation.limit_length() * rcs_torque_nm)
+ state.apply_torque(state.transform.basis * computer.torque_local)
  # Proper acceleration from commanded force, excludes coordinate rotation.
  acceleration_world = force_world / mass
  acceleration_local = force_local / mass

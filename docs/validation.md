@@ -30,3 +30,31 @@ Base: `32ab4ac`, implemented on `feature/milestone-0.1.1-gamepad`. Engine remain
 An initial boundary test exposed float precision at exactly 0.15. The filter now treats the boundary plus a 1e-6 tolerance as zero; the full suite passed after correction. No assertions were disabled.
 
 **No physical Xbox/PlayStation controller was attached, and no graphical desktop playtest was possible.** Synthetic `InputEventJoypadMotion` / `InputEventJoypadButton` events test Godot's actual Input Map, input dispatch, GUI focus and physical simulation, not USB/Bluetooth connectivity, platform driver mappings, real trigger calibration, rendering or subjective handling. The README includes the remaining hardware checklist. Multiplayer/device isolation is not implemented.
+
+## Milestone 0.1.2 — physical flight computer, 2026-10-22
+
+Base: published `feature/gamepad-ready` / `c055a16`. Engine: **Godot 4.7.stable.official.5b4e0cb0f**, Linux x86_64, 60 Hz physics. Command: `GODOT_BIN=/workspace/tools/godot-4.7/Godot_v4.7-stable_linux.x86_64 ./tools/check.sh`.
+
+- Headless editor import and 120-frame main-scene start: successful; no parse/resource/runtime errors in the final run.
+- Original suites are unchanged: **7 flight + 10 workflow + 63 controller checks pass**.
+- New suite: **58 passed, 0 failed**, including physical mouse torque/input routing, Ctrl modifier priority (also actual key events), all local brake axes, full braking in a moving reference frame, independent roll/rate braking, manual priority and actuator limits, neutral recovery after controller orbit, controller configuration persistence and GUI navigation, orbital camera/grid, and collision ray queries for clear launch corridor/solid wreck.
+- **Total: 138 passed, 0 failed, 0 skipped.** New suite uses `--fixed-fps 60`: faster wall-clock execution with the same actual Godot 60-Hz physics integration and fixed dt, not a replacement mathematical integrator.
+- Tests explicitly verify no immediate transform/velocity changes on command submission and bounded per-tick physical angular/linear velocity changes. Rotation preserves pre-existing linear world velocity; no physical state is teleported except test-fixture initialization and the explicit debug-reset path.
+
+### Measured 180° rest-to-rest maneuvers
+
+The test submits a 180° attitude target to the same bounded PD controller used by H/hold, from rest, independently about each principal axis. There is no UI auto-turn button. Reported times are **simulation seconds**, first entering both <2° attitude error and <2°/s angular speed, verified for at least 60 consecutive physics ticks and remaining settled through 12 simulated seconds.
+
+| Axis | Actual Godot inertia (kg·m²) | Torque limit (N·m) | Settled time | Peak rate |
+|---|---:|---:|---:|---:|
+| Pitch X | 13,210,000 | 5,284,000 | 6.4667 s | 60.1632°/s |
+| Yaw Y | 13,450,000 | 5,380,000 | 6.4667 s | 60.1632°/s |
+| Roll Z | 740,000 | 296,000 | 6.4667 s | 60.1632°/s |
+
+Maximum observed angular-velocity change per tick: **0.00666672 rad/s**, consistent with 0.4 rad/s² × 1/60 s. The ideal unlimited-switch bang-bang lower bound is `2 sqrt(pi / 0.4) = 5.605 s`; the PD settling result includes angular braking and is below ten seconds. The body retained its initial `(9, 3, -8) m/s` world velocity within 0.001 m/s throughout each maneuver. This result is not a claim about human mouse/controller performance.
+
+Previous effective settings were 11,000,000 / 11,000,000 / 2,200,000 kg·m² and a common 1,800,000 N·m torque rating: maximum nominal acceleration 0.1636 / 0.1636 / 0.8182 rad/s², with an ideal pitch/yaw 180° lower bound of 8.76 s before additional controller settling. The new model follows the stated hull dimensions and gives matched responsiveness rather than disproportionately fast roll.
+
+Initial development runs exposed a buffered synthetic-key event timing issue and a typed test-variable parse error; both were corrected before the final full run. No old tests/assertions were changed or disabled. `git diff --check` passes.
+
+**No new graphical desktop or physical controller test was performed here.** The user reported successful desktop validation of the previous milestone; that is not validation of this version. Final visual contrast, arena scale/appearance, mouse feel, real gamepad mappings and frame rate remain desktop acceptance items. Collision geometry, control routing, controller menu choices and simulation behavior have headless coverage. No graphics performance benchmark or cross-platform export was run.
