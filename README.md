@@ -1,6 +1,6 @@
-# DRIFT · Milestone 0.1.2
+# DRIFT · Milestone 0.1.3
 
-Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben und abschaltbarer Flugcomputer. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
+Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
 
 ## Start und erster Flug
 
@@ -56,7 +56,23 @@ Die normalen Flugachsen bleiben vollständig erhalten. Nur der ausdrücklich geh
 
 Im Pausemenü unter **Flight computer / Controller bindings** sind ein alternatives D-Pad-Layout (oben/unten und links/rechts vertauscht) sowie die Bremsfunktion des Controller-Bremsknopfs wählbar: Gesamtgeschwindigkeit, lokale Z-/X-/Y-Komponente oder Rollrate. Dort lassen sich auch Rotationsstabilisierung, Lagehaltung und Bezugsrahmen einstellen. Start/Options oder P setzt fort; B/Kreis beziehungsweise Esc geht zurück.
 
+Zusätzlich gibt es eine **Maus-Flugempfindlichkeit** von 0,25–2,00 (Standard 1,00) im Haupt-Pausemenü; sie skaliert nur den virtuellen Flugstick, nicht den Crew-Mausblick oder die Außenkamera.
+
 Weitere Einstellungen: radiale Stick-Deadzone **0,15** (0,05–0,40), Empfindlichkeit (0,25–2,00) und Y-Invertierung für Controller-Kamera/Pitch. Trigger haben eine separate Deadzone von 0,05; die Menünavigation eine höhere Betätigungsschwelle. Die letzte bewusste Eingabe wählt Maus/Tastatur oder Gamepad und passende HUD-Hinweise. Sub-Deadzone-Stickdrift, neutrale Trigger und kleine Mausbewegungen stehlen die Quelle nicht. Einstellungen werden beim Fortsetzen in `user://input_settings.cfg` gespeichert. Reset und Beenden sind ohne Tastatur erreichbar.
+
+## Cockpitinstrumente
+
+Beim Start gibt es **keine permanente Debug-Textwand**. **F3** blendet die bisherigen technischen Daten und das Debug-Menü gemeinsam ein/aus. Außerhalb der Displays erscheint regulär nur die kontextuelle Stationsaufforderung. Drei geneigte, gerahmte Bildschirme mit Sockeln sitzen unterhalb der normalen Piloten-Sichtlinie; dieselben Texturen sind auch am lokalen Brückenpult zu sehen.
+
+1. **Navigation:** echte 3D-Kugel mit Achsenringen und Pfeilen. **Blau = Forward (−Z), Orange = Geschwindigkeit, Grün = tatsächliche Schub-Beschleunigung.** Zahlen bleiben in m/s beziehungsweise m/s² korrekt. Bei neutralem Schub bleibt der Driftpfeil sichtbar und der grüne Pfeil verschwindet. **N** wechselt schiffslokale/Weltachsen; dieselbe Wahl ist im Flugcomputer-Pausemenü per Controller erreichbar. Die Geschwindigkeit bezieht sich in beiden Darstellungen auf den ausgewählten inertialen Flugcomputer-Rahmen; N ändert nur die Darstellung, F7 den Bezugsrahmen.
+2. **Propulsion / RCS:** Hauptschub-Prozent, tatsächliche Translations- und Rotations-RCS je Achse, Beschleunigung und g. Orange zeigt zugeteilte Leistung; grüne Marken zeigen den tatsächlich zugeteilten automatischen Gegensteuerungsanteil. Die linke/rechte Balkenhälfte bedeutet negative/positive lokale Achse; **−Z = vorwärts**, +Z = rückwärts. Nullmarken bleiben mittig. Dies ist kein Schema einzelner physischer Düsen.
+3. **Flight Computer:** Rotationsstabilisierung, Lagehaltung, Bremsachsen einschließlich Rollbremse, Pitch-/Yaw-/Rollrate, Referenzrahmen, Bremsfortschritt, ETA und verfügbare Brems-RCS-Leistung. ETA gilt weiter für freie RCS-Leistung bis 0,05 m/s und ist beim freien Flug als inaktiv gekennzeichnet.
+
+Jedes Instrument rendert in einen **512×448-SubViewport**, dessen Textur auf einem **1,05×0,92-m-Quad** im 3D-Cockpit liegt. Die normale Kamera bleibt unverändert. Bei 1280×720 liegen die sichtbaren Display-Rechtecke ungefähr bei X=79–470, 470–810 und 810–1201, Y=379–694. Typische 24-Pixel-Schrift in der Textur erscheint damit etwa 16 Pixel hoch. Es gibt keine drei Canvas-HUD-Karten. Die Navigation hat eine eigene World3D mit geometrischen Pfeilen, keine Textsimulation eines 3D-Instruments.
+
+[Gerendertes Cockpit](docs/screenshots/cockpit.png) · [Automatische Bremsung](docs/screenshots/braking.png) · [Start auf der Brücke ohne Debug-Overlay](docs/screenshots/bridge.png)
+
+Die Bilder wurden bei 1280×720 mit Godot 4.7, Xvfb und Mesa/llvmpipe gerendert und visuell geprüft. Das ersetzt keinen interaktiven Spieltest oder echten Controller-Hardwaretest. Optional lassen sie sich auf einem vorhandenen Desktop mit `godot --path . --audio-driver Dummy --resolution 1280x720 --script res://tests/cockpit_capture.gd` reproduzieren. Dieses Diagnose-Skript setzt eine explizite Test-Startgeschwindigkeit und gibt Schub-/Bremsaktionen ein; es verändert keine Spielphysik. Die erzeugten Screenshots werden unter `docs/screenshots` gespeichert.
 
 ## Physik und Flugcomputer
 
@@ -73,7 +89,7 @@ Die vier getrennten Funktionen sind:
 
 Manueller Schub hat auf seiner Achse Vorrang, Hauptschub unterdrückt automatische Z-Bremsung. Die verbleibende RCS-Leistung steht orthogonalen Bremsachsen zur Verfügung; manuelle Leistung wird nicht zugunsten des Computers abgeschwächt. Nach Loslassen der Bremsanforderung gibt es keine automatische Geschwindigkeitsbremsung. Lagehaltung und Rotationsstabilisierung sind unabhängig abschaltbar. Pause friert die gesamte Simulation ein.
 
-HUD: Weltgeschwindigkeitsbetrag, lokaler Geschwindigkeitsvektor, Vektor relativ zum gewählten Rahmen, Pitch-/Yaw-/Rollrate, zuletzt simulierter Hauptschub, lineare Eigenbeschleunigung/g, Assist-/Lagehalte-/Bremsstatus, verfügbare Brems-RCS-Leistung, Fortschritt und geschätzte Zeit bis **0,05 m/s** Restgeschwindigkeit. ETA gilt für freie RCS-Leistung und ändert sich bei manuellen Eingriffen, Kollisionen oder Rahmenwechsel. Ein zentriertes Vorwärtssymbol kennzeichnet die Schiffsnase (−Z).
+Die per F3 zuschaltbare Debuganzeige enthält weiterhin: Weltgeschwindigkeitsbetrag, lokaler Geschwindigkeitsvektor, Vektor relativ zum gewählten Rahmen, Pitch-/Yaw-/Rollrate, zuletzt simulierter Hauptschub, lineare Eigenbeschleunigung/g, Assist-/Lagehalte-/Bremsstatus, verfügbare Brems-RCS-Leistung, Fortschritt und geschätzte Zeit bis **0,05 m/s** Restgeschwindigkeit. ETA gilt für freie RCS-Leistung und ändert sich bei manuellen Eingriffen, Kollisionen oder Rahmenwechsel. Die Vorwärtsrichtung (−Z) erscheint jetzt als blauer Pfeil im Navigationsinstrument.
 
 Die parametrierbare g-Vignette bleibt erhalten. Keine Blitze, physiologische Grenzwerte oder Schadensregeln; lineare Schub-Eigenbeschleunigung schließt derzeit weder Kollisionsimpulse noch Winkelbelastung ein.
 
@@ -92,7 +108,8 @@ Der Innenraum bleibt eine separate **lokale World3D** mit vereinfachter künstli
 - `crew_controller.gd`, `crew_station.gd`: lokale Crewbewegung und exklusive Stationsbelegung.
 - `test_arena.gd`, `exterior_orbit.gd`: statische Referenzen und unabhängige Kameradarstellung.
 - `pause_menu.gd`: Controller-/Maus-/Tastatur-Menüs.
-- `tests/`: bisherige drei Testsuiten plus Flugcomputer-/Manöver-/Eingabekonflikt-/Arena-Tests.
+- `scripts/instruments/`: typisiertes `ShipTelemetry`-Snapshot, gemeinsame Display-Zeichenbasis, drei getrennte Instrumente und wiederverwendbare Cockpit-Montage.
+- `tests/`: bisherige vier Suiten plus Telemetrie-/Instrumenten-/Kameraprojektions-Tests; **171 Prüfungen** insgesamt.
 
 ```bash
 # Linux x86_64; benötigt curl, unzip und sha512sum:
@@ -104,6 +121,6 @@ Der Bootstrap installiert die offizielle, SHA512-geprüfte 4.7-Version außerhal
 
 [Messwerte und Testergebnisse](docs/validation.md), [Architektur und spätere Schnittstellen](docs/architecture.md).
 
-**Kein neuer grafischer Desktop- oder Controller-Hardwaretest für 0.1.2 wurde hier durchgeführt.** Der Nutzer hat einen erfolgreichen Desktop-Test des vorherigen Stands gemeldet. Für diese Version bitte Mausgefühl, Kamera/Zoom, Blickwechsel, Controller-Treiber, Neutralstellung und Menüs auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Keine Waffen, Drohnen, KI, Netzwerk-, Replay- oder Missionssysteme.
+**Kein interaktiver Desktop- oder Controller-Hardwaretest für 0.1.3 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte Instrumente, Mausgefühl und Menüs auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Keine Waffen, Drohnen, KI, Netzwerk-, Replay- oder Missionssysteme.
 
-Nächste empfohlene Aufgabe: Desktop-/Controller-Abnahme des neuen Fluggefühls und der visuellen Referenzen, danach gerichtete Crew-Beschleunigungseffekte und umschaltbare lokale Gravitation/Zero-G.
+Nächste empfohlene Aufgabe: Desktop-/Controller-Abnahme der Cockpit-Lesbarkeit bei unterschiedlicher Auflösung und Drift, danach gerichtete Crew-Beschleunigungseffekte und umschaltbare lokale Gravitation/Zero-G.

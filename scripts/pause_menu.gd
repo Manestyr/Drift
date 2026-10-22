@@ -4,10 +4,12 @@ extends CanvasLayer
 signal pause_changed(paused: bool)
 signal reset_requested
 var save_settings_on_close: bool = true
+var instruments: CockpitInstruments
 var computer: FlightComputer
 var computer_panel: PanelContainer
 var rate_toggle: CheckButton
 var hold_toggle: CheckButton
+var nav_toggle: CheckButton
 var reference: OptionButton
 var source: PlayerInput
 var panel: PanelContainer
@@ -25,7 +27,7 @@ func _ready() -> void:
  rows.add_theme_constant_override("separation", 14)
  panel.add_child(rows)
  var title := Label.new()
- title.text = "PAUSED — Controller settings"
+ title.text = "PAUSED — Input settings"
  rows.add_child(title)
  resume = Button.new()
  resume.text = "Resume / Fortsetzen"
@@ -52,6 +54,8 @@ func _ready() -> void:
  flight_button.text = "Flight computer / Controller bindings"
  flight_button.pressed.connect(_open_computer)
  rows.add_child(flight_button)
+ _slider(rows, "Mouse flight sensitivity", 0.25, 2.0, 0.05, source.settings.mouse_flight_sensitivity,
+  func(value: float) -> void: source.settings.mouse_flight_sensitivity = value)
  _build_computer_panel()
  status = Label.new()
  status.text = "D-pad / arrows: navigate + adjust | A / Cross / Enter: select\nStart / Options / P / B / Circle: resume | settings saved on resume"
@@ -135,6 +139,10 @@ func _build_computer_panel() -> void:
  _choice(rows, "Controller brake button operates", ["All velocity components", "Local forward/back (Z)", "Local lateral (X)", "Local vertical (Y)", "Local roll rate"], source.settings.brake_mode,
   func(value: int) -> void: source.settings.brake_mode = value)
  reference = _choice(rows, "Inertial braking frame", ["Arena rest (0 m/s)", "Virtual convoy (-20 m/s world Z)"], 0, _select_reference)
+ nav_toggle = CheckButton.new()
+ nav_toggle.text = "Navigation display: inertial world axes (N)"
+ nav_toggle.toggled.connect(func(value: bool) -> void: instruments.navigation.inertial_frame = value)
+ rows.add_child(nav_toggle)
  var info := Label.new()
  info.text = "Hold brake button to brake. Manual thrust wins on its axis.\nMouse wheel: exterior zoom. Hold RS click: orbit/trigger zoom."
  rows.add_child(info)
@@ -164,6 +172,7 @@ func _choice(rows: VBoxContainer, title: String, items: Array, selected: int, ch
 func _open_computer() -> void:
  panel.hide()
  computer_panel.show()
+ nav_toggle.set_pressed_no_signal(instruments.navigation.inertial_frame)
  rate_toggle.set_pressed_no_signal(computer.rotation_stabilization)
  hold_toggle.set_pressed_no_signal(computer.attitude_hold)
  rate_toggle.grab_focus()

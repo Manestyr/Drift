@@ -2,6 +2,8 @@ extends Node
 
 var input_source: PlayerInput
 var pause_menu: PauseMenu
+var instruments: CockpitInstruments
+var status_hint: Label
 var arena: TestArena
 var orbit := ExteriorOrbit.new()
 var nose_hint: Label
@@ -31,6 +33,7 @@ func _ready() -> void:
  pause_menu = PauseMenu.new()
  pause_menu.source = input_source
  pause_menu.computer = ship.computer
+ pause_menu.instruments = instruments
  pause_menu.pause_changed.connect(_pause_changed)
  pause_menu.reset_requested.connect(_reset_ship)
  pause_menu.attitude_capture_requested.connect(func() -> void: ship.computer.capture_attitude(ship.global_basis))
@@ -95,8 +98,10 @@ func _space() -> void:
  pilot_camera.position = Vector3(0, 1.5, -18.5)
  pilot_camera.far = 100000
  ship.add_child(pilot_camera)
- # Small cockpit sill in the pilot's view.
- _box(ship, Vector3(0, 0.7, -19.5), Vector3(2.2, 0.15, 0.3), Color(0.08, 0.17, 0.2))
+ instruments = CockpitInstruments.new()
+ ship.add_child(instruments)
+ ship.state_sampled.connect(_sample_instruments)
+ # The instrument console supplies the physical sill and screen housings.
  outside_camera = Camera3D.new()
  outside_camera.far = 100000
  space.add_child(outside_camera)
@@ -119,6 +124,7 @@ func _interior() -> void:
  var room := Node3D.new()
  interior.add_child(room)
  _environment(room)
+ instruments.mount(room, Vector3(0, 0.8, 4.5))
  # All deck coordinates are ship-local. No global flight displacement enters this world.
  _box(room, Vector3(0, -0.25, 0), Vector3(6, 0.5, 36), Color(0.16, 0.2, 0.25), true)
  _box(room, Vector3(0, 3.8, 0), Vector3(6, 0.3, 36), Color(0.12, 0.15, 0.2), true)
@@ -168,7 +174,13 @@ func _ui() -> void:
  hud = Label.new()
  hud.position = Vector2(24, 20)
  hud.add_theme_font_size_override("font_size", 18)
+ hud.visible = false
  canvas.add_child(hud)
+ status_hint = Label.new()
+ status_hint.position = Vector2(24, 674)
+ status_hint.add_theme_font_size_override("font_size", 18)
+ status_hint.modulate = Color(0.7, 0.8, 0.8)
+ canvas.add_child(status_hint)
  nose_hint = Label.new()
  nose_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
  nose_hint.text = "^\n+\nFORWARD -Z"
@@ -232,8 +244,11 @@ func _unhandled_input(event: InputEvent) -> void:
   input_source.clear_mouse()
   outside = not outside
   _update_view()
+ if event.is_action_pressed("instrument_frame"):
+  instruments.navigation.inertial_frame = not instruments.navigation.inertial_frame
  if event.is_action_pressed("debug"):
   debug_panel.visible = not debug_panel.visible
+  hud.visible = debug_panel.visible
  if event.is_action_pressed("reset"):
   _reset_ship()
 
@@ -268,18 +283,25 @@ func _physics_process(delta: float) -> void:
  else:
   ship.command.clear()
 
+func _sample_instruments(_tick: int) -> void:
+ var state := PhysicsServer3D.body_get_direct_state(ship.get_rid())
+ instruments.refresh(ShipTelemetry.capture(ship, state))
+
 func _process(delta: float) -> void:
  if outside and input_source.using_gamepad and Input.is_action_pressed("pad_orbit"):
   orbit.turn(input_source.camera_rate() * delta)
   orbit.zoom((Input.get_action_strength("pad_reverse") - Input.get_action_strength("pad_main")) * delta)
  orbit.update(outside_camera, ship.position)
- nose_hint.visible = station.occupied and not outside
+ nose_hint.visible = false
+ status_hint.text = ""
+ if not station.occupied and crew.position.distance_to(station.position) < 3.0:
+  status_hint.text = "A / Cross: pilot station" if input_source.using_gamepad else "F: pilot station"
  var g_load := ship.acceleration_world.length() / 9.80665
  exposure = lerpf(exposure, g_load, 1.0 - exp(-delta / maxf(g_effect_response_seconds, 0.01)))
  (stress_overlay.material as ShaderMaterial).set_shader_parameter("strength", clampf(exposure * g_effect_gain, 0.0, 0.65))
  var local_v := ship.local_velocity()
  var mode := "PILOT / NEWTONIAN" if station.occupied else "CREW / LOCAL ARTIFICIAL GRAVITY"
- hud.text = "DRIFT 0.1.2 | %s\nSpeed %.2f m/s | local v [%.2f, %.2f, %.2f] m/s\nMain %.0f N | acceleration %.2f m/s² | %.2f g\nSustained load %.2f g | physics tick %d" % [mode, ship.linear_velocity.length(), local_v.x, local_v.y, local_v.z, ship.applied_main_thrust_n, ship.acceleration_world.length(), g_load, exposure, ship.tick]
+ hud.text = "DRIFT 0.1.3 | %s\nSpeed %.2f m/s | local v [%.2f, %.2f, %.2f] m/s\nMain %.0f N | acceleration %.2f m/s² | %.2f g\nSustained load %.2f g | physics tick %d" % [mode, ship.linear_velocity.length(), local_v.x, local_v.y, local_v.z, ship.applied_main_thrust_n, ship.acceleration_world.length(), g_load, exposure, ship.tick]
  var rate := ship.global_basis.inverse() * ship.angular_velocity * (180.0 / PI)
  var fc := ship.computer
  var relative_v := ship.global_basis.inverse() * (ship.linear_velocity - fc.reference_velocity)

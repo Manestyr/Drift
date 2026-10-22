@@ -58,3 +58,29 @@ Previous effective settings were 11,000,000 / 11,000,000 / 2,200,000 kg·m² and
 Initial development runs exposed a buffered synthetic-key event timing issue and a typed test-variable parse error; both were corrected before the final full run. No old tests/assertions were changed or disabled. `git diff --check` passes.
 
 **No new graphical desktop or physical controller test was performed here.** The user reported successful desktop validation of the previous milestone; that is not validation of this version. Final visual contrast, arena scale/appearance, mouse feel, real gamepad mappings and frame rate remain desktop acceptance items. Collision geometry, control routing, controller menu choices and simulation behavior have headless coverage. No graphics performance benchmark or cross-platform export was run.
+
+## Milestone 0.1.3 — functional cockpit, 2026-10-22
+
+Base: `4843352` / `feature/milestone-0.1.2-flight-computer`. Godot **4.7.stable.official.5b4e0cb0f**, Linux x86_64.
+
+- Headless import and 120-frame start: passed.
+- All previous **138 checks** remain unchanged and pass.
+- **33 new instrument checks** pass: snapshot coherence, world/local directions, independent acceleration direction, neutral thrust with persistent drift, actual manual RCS direction, automatic countersteer, reference velocity subtraction, N mapping/frame switching, observer non-mutation, updates to all three instruments, F3 visibility, mouse sensitivity scaling/persistence, viewport-texture links, and pilot-camera projection.
+- Total: **171 passed, 0 failed, 0 skipped**. Runner: `GODOT_BIN=/workspace/tools/godot-4.7/Godot_v4.7-stable_linux.x86_64 ./tools/check.sh`.
+- `ship_physics.gd`, `flight_computer.gd`, `flight_command.gd` and the four previous test files have no changes from the base. The existing maneuver measurements therefore remain applicable; the instrument UI never writes physical state.
+
+### Actual rendering and readability check
+
+An Xvfb display was made available using a Debian package verified by apt against signed official mirror metadata. Godot's real OpenGL Compatibility renderer ran with **Mesa 25.0.7 / llvmpipe (LLVM 19.1.7)** at **1280×720**. `tests/cockpit_capture.gd` captured startup, pilot manual counterthrust and automatic-braking frames; those images were inspected visually. See `docs/screenshots/bridge.png`, `cockpit.png`, `braking.png`. These are engine-rendered screenshots, not edited mockups. Audio used the Dummy driver on the final run. Xvfb reports an expected unsupported-VSync warning; this is not a rendering failure.
+
+Headless projection explicitly sets a 1280×720 root window (the default headless dummy window otherwise reports 64×64). Actual projected corners:
+
+| Instrument | Minimum pixel position | Maximum pixel position | Bounding size |
+|---|---|---|---|
+| Navigation | (78.79, 378.85) | (469.69, 693.79) | 390.90×314.95 |
+| Propulsion | (470.41, 379.88) | (809.59, 673.18) | 339.18×293.31 |
+| Computer | (810.31, 378.85) | (1201.21, 693.79) | 390.90×314.95 |
+
+All four corners of every panel fit the unchanged pilot camera frustum. Texture resolution is 512×448 per screen. Main 24-pixel typography is approximately 16 screen pixels high on the center panel, slightly varying with perspective. The virtual rendered check verified front-face/texture orientation, all numeric values, frame placement and lack of a startup text wall. Initial rendering exposed an old sill occluding footers and navigation readouts drawn beneath the background; both were corrected before the final captures. A headless projection-fixture size issue and a typed test-variable parse error were also fixed, without weakening assertions.
+
+**Not performed:** interactive human desktop playtest, physical Xbox/PlayStation input test, native GPU/frame-rate benchmark or other resolutions/platforms. This milestone has a real virtual-display visual check in addition to headless testing; it does not claim a new human hardware acceptance test. The screenshots' drift state is explicit capture-fixture setup, not production physics code.

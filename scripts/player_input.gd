@@ -86,7 +86,7 @@ func clear_mouse() -> void:
  mouse_steer = Vector2.ZERO
 
 func add_flight_mouse(relative: Vector2) -> void:
- mouse_steer = (mouse_steer + relative * 0.008).limit_length()
+ mouse_steer = (mouse_steer + relative * 0.008 * settings.mouse_flight_sensitivity).limit_length()
 
 func computer_event(event: InputEvent, action: String) -> bool:
  if event is InputEventJoypadButton:
