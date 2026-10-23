@@ -11,6 +11,8 @@ var mission_status: Label
 var observe_missile: bool = false
 # Operator context, not simulation state. Each station can later own an adapter.
 enum WeaponView { FIRE_CONTROL, MAP, MISSILE }
+var designation_context: bool = false
+var tactical_hud: TacticalHud
 var weapon_view: int = WeaponView.FIRE_CONTROL
 var selected_missile_id: String = ""
 var missile_command:=FlightCommand.new()
@@ -49,6 +51,10 @@ func _ready() -> void:
  var canvas := CanvasLayer.new()
  canvas.layer=3
  add_child(canvas)
+ tactical_hud=TacticalHud.new()
+ tactical_hud.state=encounter.player_designations
+ tactical_hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+ canvas.add_child(tactical_hud)
  mission_status=Label.new()
  mission_status.position=Vector2(24,12)
  mission_status.add_theme_font_size_override("font_size",19)
@@ -90,7 +96,7 @@ func _physics_process(dt: float) -> void:
 func _process(dt: float) -> void:
  super._process(dt)
  if encounter==null: return
- if weapon_view!=WeaponView.FIRE_CONTROL:
+ if weapon_view!=WeaponView.FIRE_CONTROL or designation_context:
   status_hint.text="" # Context-specific hints replace the harness shortcuts.
  if observe_missile:
   var missile:=selected_missile()
@@ -114,6 +120,13 @@ func _process(dt: float) -> void:
    if missile.manual_mode:
     missile_hint.text+="\n"+("Left stick: pitch/yaw | Right stick: side RCS | %s: burn | %s/%s: roll"%["R2" if input_source.symbol_scheme()==1 else "RT",input_source.button_label(JOY_BUTTON_LEFT_SHOULDER),input_source.button_label(JOY_BUTTON_RIGHT_SHOULDER)] if pad else "Mouse: pitch/yaw | A/D + Space/Shift: side RCS | LMB: burn | Q/E: roll")
    missile_hint.text+="\n"+("%s: leave station | %s: exterior | %s: pause"%[input_source.button_label(JOY_BUTTON_A),input_source.button_label(JOY_BUTTON_Y),input_source.button_label(JOY_BUTTON_START)] if pad else "F: leave station | V: exterior | P: pause")
+ tactical_hud.size=get_viewport().get_visible_rect().size
+ tactical_hud.visible=encounter.result=="ACTIVE" and weapon_view!=WeaponView.MISSILE and (station.occupied or outside)
+ if tactical_hud.visible:
+  tactical_hud.camera=outside_camera if outside else pilot_camera
+  tactical_hud.own_transform=ship.global_transform
+  tactical_hud.own_velocity=ship.linear_velocity
+  tactical_hud.refresh()
  mission_status.text="ALPHA | %s | %s | %.0f s | seed %d | %s: pause"%[CombatProfile.MODE_NAMES[encounter.control_mode],CombatProfile.DIFFICULTY_NAMES[encounter.difficulty],encounter.elapsed,setup_seed,input_source.button_label(JOY_BUTTON_START) if input_source.using_gamepad else "P"]
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -122,6 +135,17 @@ func _unhandled_input(event: InputEvent) -> void:
   primary_held=false
   return
  var occupied := current_station()
+ if occupied==stations[1]:
+  if event.is_action_pressed("interact"):
+   _leave_pilot()
+   return
+  if designation_context:
+   _designation_input(event)
+   return
+  var chord: bool=event.is_action_pressed("combat_automation") and Input.get_action_strength("pad_reverse")>0.5
+  if not outside and (event.is_action_pressed("designation_context") or chord):
+   _set_designation_context(true)
+   return
  if occupied==stations[2]:
   if event.is_action_pressed("interact"):
    _leave_pilot()
@@ -163,6 +187,7 @@ func _unhandled_input(event: InputEvent) -> void:
   encounter.events.record(ship.tick,"target_change","DRIFT",{"contact_id":sensors.selected_id})
 
 func _mission_ended(outcome: String) -> void:
+ _set_designation_context(false)
  _return_fire_control()
  input_source.clear_mouse()
  controls_captured=false
@@ -191,12 +216,14 @@ func _mission_ended(outcome: String) -> void:
  restart.grab_focus()
 
 func _leave_pilot() -> void:
+ _set_designation_context(false)
  _return_fire_control()
  observe_missile=false
  primary_held=Input.is_action_pressed("combat_primary")
  super._leave_pilot()
 
 func _toggle_exterior() -> void:
+ _set_designation_context(false)
  var was_outside:=outside and weapon_view==WeaponView.FIRE_CONTROL
  _return_fire_control()
  outside=was_outside
@@ -297,3 +324,32 @@ func _active_device_changed(gamepad: bool) -> void:
  var missile:=selected_missile()
  if missile!=null: missile.clear_operator_input()
  super._active_device_changed(gamepad)
+
+func _set_designation_context(active: bool) -> void:
+ designation_context=active
+ for display in tactical_displays:
+  if display is CombatDisplay and not display.weapons: display.designation_context=active
+ input_source.reset_context()
+
+func _designation_input(event: InputEvent) -> void:
+ if event.is_echo(): return
+ if event.is_action_pressed("ui_cancel") or event.is_action_pressed("designation_context"):
+  _set_designation_context(false)
+ elif event.is_action_pressed("exterior"):
+  _toggle_exterior()
+ elif event.is_action_pressed("target_previous"): sensors.cycle(-1)
+ elif event.is_action_pressed("target_next"): sensors.cycle(1)
+ elif event.is_action_pressed("sensor_track"):
+  _designation_command("primary")
+ elif event.is_action_pressed("combat_primary"):
+  if not primary_held:
+   primary_held=true
+   _designation_command("threat")
+ elif event.is_action_pressed("combat_automation"):
+  encounter.player_designations.clear_selected(sensors.selected_id,"sensor-operator")
+  audio.cue("confirm")
+
+func _designation_command(category: String) -> void:
+ var accepted:=encounter.player_designations.designate(sensors.selected_id,category,"sensor-operator")
+ encounter.last_message="DESIGNATED "+sensors.selected_id if accepted else "DESIGNATION REQUIRES OBSERVED HOSTILE "+("SHIP" if category=="primary" else "MISSILE")
+ audio.cue("confirm" if accepted else "ui")

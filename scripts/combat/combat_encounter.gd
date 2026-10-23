@@ -3,6 +3,7 @@ extends Node3D
 
 signal ended(result: String)
 var player: ShipPhysics
+var player_designations:=ShipDesignations.new()
 var player_sensors: SensorSuite
 var enemy: ShipPhysics
 var enemy_sensors := SensorSuite.new()
@@ -40,6 +41,8 @@ var waypoints: Array[Vector3] = [Vector3(-60,20,-80),Vector3(140,30,-140),Vector
 var last_message: String = "Kontakt Alpha / automation fills unoccupied stations"
 
 func _ready() -> void:
+ player_designations.designation_changed.connect(func(category: String, target_id: String, sender: String, seconds: float) -> void:
+  events.record(player.tick,"designation",String(player.name),{"category":category,"target_id":target_id,"sender_role":sender,"issued_seconds":seconds}))
  profile=CombatProfile.settings(difficulty)
  enemy_pilot.weave=profile.weave
  var rng:=RandomNumberGenerator.new()
@@ -120,6 +123,7 @@ func observed_targets() -> Array[Node3D]:
 func tick(dt: float) -> void:
  if result!="ACTIVE": return
  elapsed+=dt
+ player_designations.observe(player_sensors.contacts,elapsed)
  weapons_occupied=weapons_occupied or (is_instance_valid(weapons_station) and weapons_station.occupied)
  drone_occupied=drone_occupied or (is_instance_valid(drone_station) and drone_station.occupied)
  var live: Array[MissileBody]=[]

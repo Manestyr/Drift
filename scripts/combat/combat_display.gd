@@ -2,7 +2,7 @@ class_name CombatDisplay
 extends TacticalDisplay
 
 var text_nodes: Dictionary = {}
-var text_generation: int = 0
+var designation_context: bool = false
 var refresh_seconds: float = 0.0
 var presentation_mode: int = 0
 var tactical_map: TacticalMap
@@ -20,8 +20,10 @@ const DIM:=Color(0.54,0.68,0.71)
 func _ready() -> void:
  super._ready()
  font=ThemeDB.fallback_font.duplicate(true)
- if font is FontFile:
-  (font as FontFile).multichannel_signed_distance_field=true
+ if ThemeDB.fallback_font is FontFile:
+  var isolated:=FontFile.new()
+  isolated.data=(ThemeDB.fallback_font as FontFile).data.duplicate()
+  font=isolated
 
  tactical_map=TacticalMap.new()
  add_child(tactical_map)
@@ -94,12 +96,13 @@ func _draw() -> void:
  draw_rect(Rect2(Vector2.ZERO,size),BG)
  draw_rect(Rect2(8,8,944,624),DIM.darkened(0.5),false,2)
  line(46,"WEAPONS / DRIFT" if weapons else "DRONE CONTROL",BLUE,28,34)
- line(78,encounter.control_label(weapons),DIM,28,24)
+ line(78,encounter.control_label(weapons)+" | "+encounter.player_designations.summary(),DIM,28,21)
  draw_line(Vector2(28,92),Vector2(932,92),DIM.darkened(0.5),2)
  if weapons and presentation_mode==1: _map_face()
  elif weapons: _weapon_face()
+ elif designation_context: _designation_face()
  else: _drone_face()
- if presentation_mode!=1 or not weapons: _controls()
+ if not designation_context and (presentation_mode!=1 or not weapons): _controls()
  _finish_labels()
 
 func _finish_labels() -> void:
@@ -147,6 +150,10 @@ func _drone_face() -> void:
  line(140,"FORWARD ↑ / 1.2 km",BLUE,55,25)
  draw_colored_polygon(PackedVector2Array([center+Vector2(0,-12),center+Vector2(-8,9),center+Vector2(8,9)]),BLUE)
  line(464,"DRIFT / top view X-Z",DIM,55,24)
+ var designate_key: String="Z"
+ if source!=null and source.using_gamepad:
+  designate_key=("L2" if source.symbol_scheme()==1 else "LT")+" + "+source.button_label(JOY_BUTTON_RIGHT_STICK)
+ line(488,designate_key+": DESIGNATE",BLUE,55,21)
  for contact in sensors.contacts:
   if contact.team==1 and contact.kind=="missile":
    var offset:=Vector2(contact.relative_position.x,contact.relative_position.z)*scale
@@ -185,3 +192,38 @@ func _controls() -> void:
   line(530,"%s: deploy   %s: waypoint   %s: DEFEND"%[key("L",JOY_BUTTON_DPAD_UP),key("K",JOY_BUTTON_DPAD_DOWN),key("R",JOY_BUTTON_RIGHT_SHOULDER)],GREEN,32,26)
   line(568,"%s: HOLD   %s: RECALL   %s: leave"%[key("H",JOY_BUTTON_LEFT_SHOULDER),key("C",JOY_BUTTON_BACK),key("F",JOY_BUTTON_A)],DIM,32,26)
   line(607,"%s: track   %s: target   %s: role consent"%[key("T",JOY_BUTTON_X),key("←/→",JOY_BUTTON_DPAD_RIGHT),key("O",JOY_BUTTON_RIGHT_STICK)],DIM,32,26)
+
+func _designation_face() -> void:
+ var shared:=encounter.player_designations
+ line(135,"DESIGNATE / SHARED PILOT HUD [%d]"%sensors.contacts.size(),BLUE,28,28)
+ var selected:=sensors.selected()
+ var start:=0
+ for index in sensors.contacts.size():
+  if selected!=null and sensors.contacts[index].contact_id==selected.contact_id: start=clampi(index-2,0,maxi(0,sensors.contacts.size()-5))
+ var y:=175.0
+ for index in range(start,mini(start+5,sensors.contacts.size())):
+  var contact:=sensors.contacts[index]
+  var track:=shared.get_track(contact.contact_id)
+  var tags: String=""
+  if shared.primary!=null and shared.primary.target_id==contact.contact_id: tags+=" / PILOT TARGET"
+  if shared.threat!=null and shared.threat.target_id==contact.contact_id: tags+=" / PRIORITY"
+  var color: Color=AMBER if selected==contact else DIM
+  line(y,("> " if selected==contact else "  ")+contact.contact_id+" / "+contact.kind+tags,color,28,25)
+  var details: String="FRIENDLY / NOT DESIGNATABLE" if contact.team==0 else "NO VALID OBSERVATION"
+  if track!=null:
+   var distance: float=(track.estimated_position(shared.now)-encounter.player.global_position).length()
+   details="~%.0f m | Q %.0f%% | age %.1f s | %s"%[distance,track.quality*100,track.age(shared.now),"UNCERTAIN" if track.uncertain(shared.now) else "OBSERVED"]
+   if track.kind=="missile":
+    var approach:=track.approach(encounter.player.global_position,encounter.player.linear_velocity,shared.now)
+    if approach.x>0 and approach.x<=30 and approach.z<=100: details+=" | near ~%.1f s"%approach.x
+  line(y+27,details,DIM,48,21)
+  y+=60
+ line(465,"PILOT "+designation_source(shared.primary),GREEN,28,21)
+ line(491,"PRIORITY "+designation_source(shared.threat),AMBER,28,21)
+ draw_rect(Rect2(20,500,920,126),PANEL)
+ line(530,"%s: contact | %s: PILOT TARGET"%[key("arrows",JOY_BUTTON_DPAD_RIGHT),key("T",JOY_BUTTON_X)],AMBER,28,25)
+ line(567,"%s: PRIORITY MISSILE | %s: clear selected"%[key("R",JOY_BUTTON_RIGHT_SHOULDER),key("O",JOY_BUTTON_RIGHT_STICK)],GREEN,28,25)
+ line(605,"%s: drone controls | %s: leave | %s: exterior"%[key("Esc/Z",JOY_BUTTON_B),key("F",JOY_BUTTON_A),key("V",JOY_BUTTON_Y)],DIM,28,25)
+
+func designation_source(record: CrewDesignation) -> String:
+ return "—" if record==null else "%s (%s @%.1fs)"%[record.target_id,record.sender_role,record.issued_seconds]

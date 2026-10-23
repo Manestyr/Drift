@@ -1,6 +1,14 @@
-# DRIFT · Milestone 0.3.3 — Tactical Combat & Missile Control
+# DRIFT · Milestone 0.3.4 — Shared Tactical HUD & Crew Target Designation
 
 Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Kontakt Alpha ergänzt ein echtes physikalisches Gefecht mit Gegner, Raketen und Abwehrdrohne. Drei besetzbare, sicherbare Crewstationen, beobachtungsbasierte Sensorik, simulierte Feuerleitung und zentrale Crew-Schubsicherheit. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
+
+## Neu in 0.3.4
+
+Der Sensoroperator kann ein beobachtetes feindliches Schiff als gemeinsames Pilotenziel und eine Rakete als priorisierte Bedrohung markieren. Orange Zielraute, rote Warnungen, geschätzte Entfernung/Bewegung und Randpfeile erscheinen im Pilotencockpit sowie in der Außenkamera. Verlorene Beobachtungen werden kurz extrapoliert und verfallen nach höchstens 1,5 s. Keine perfekte Kenntnis fremder Körper.
+
+An der Sensor-/Drohnenkonsole **L2 halten + R3 drücken** (Tastatur **Z**) für **DESIGNATE**: Steuerkreuz ←/→ wählt, **Quadrat** markiert ein Schiff, **R1** priorisiert eine Rakete, **R3** entfernt die ausgewählte Markierung, **Kreis** führt zur unveränderten Drohnenbedienung zurück. **✕** verlässt die Station. R3 allein behält außerhalb dieses Kontexts seine bisherige Funktion.
+
+[Gesamte Bedienung, Sensorgrenzen, Architektur und Abnahme 0.3.4](docs/shared-tactical-hud-0.3.4.md).
 
 ## Neu in 0.3.3
 
