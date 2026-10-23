@@ -9,6 +9,7 @@ var max_range_m: float = 2500.0
 var cadence_seconds: float = 0.5
 var measurement_resolution_m: float = 5.0
 var estimate_acceleration: bool = false
+var sample_direct_physics: bool = false
 var previous_velocities: Dictionary = {}
 var previous_accelerations: Dictionary = {}
 var tracking_refinement: bool = false
@@ -38,7 +39,11 @@ func sample(targets: Array[Node3D], observer: Transform3D, velocity: Vector3, ti
  var next: Array[SensorContact] = []
  for target in targets:
   if not is_instance_valid(target): continue
-  var offset := target.global_position - observer.origin
+  var truth_position:=target.global_position
+  if sample_direct_physics and target is RigidBody3D:
+   var direct:=PhysicsServer3D.body_get_direct_state(target.get_rid())
+   if direct!=null: truth_position=direct.transform.origin
+  var offset := truth_position - observer.origin
   var distance := offset.length()
   if distance > max_range_m or distance < 1.0:
    continue
@@ -46,7 +51,7 @@ func sample(targets: Array[Node3D], observer: Transform3D, velocity: Vector3, ti
   var contact := SensorContact.new()
   contact.contact_id = id
   # Configurable quantization; default 5 m for the original free-flight sensor.
-  var measured := target.global_position.snapped(Vector3.ONE * measurement_resolution_m)
+  var measured := truth_position.snapped(Vector3.ONE * measurement_resolution_m)
   contact.relative_position = observer.basis.inverse() * (measured - observer.origin)
   contact.quality = clampf(1.0 - distance / max_range_m * 0.6, 0.1, 1.0)
   contact.observed_tick = tick

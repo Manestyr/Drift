@@ -16,6 +16,15 @@ var fuel_delta_v: float = 960.0
 var lifetime: float = 0.0
 var status: String = "BOOST"
 var spent: bool = false
+var manual_mode: bool = false
+var manual_rotation: Vector3 = Vector3.ZERO
+var manual_translation: Vector2 = Vector2.ZERO
+var manual_throttle: float = 0.0
+var control_reserve: float = 12.0 # integrated angular acceleration, rad/s
+var command_delay_ticks: int = 11 # 183 ms at the fixed 60-Hz tick
+var max_manual_rate: float = 1.2 # rad/s; controlled by torque, never a state clamp
+var delivered_rotation: Vector3 = Vector3.ZERO
+var _manual_queue: Array[Dictionary] = []
 var launch_impulse: Vector3 = Vector3.ZERO
 var initial_solver_velocity: Vector3 = Vector3.ZERO
 var applied_force: Vector3 = Vector3.ZERO
@@ -91,7 +100,9 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
    guidance_position = contact.observed_position_world
    guidance_velocity = contact.observed_velocity_world
    observation_age = contact.age_seconds
- if observation_age < 0.8 and fuel_delta_v > 0.0:
+ if manual_mode:
+  _manual_actuation(state)
+ elif observation_age < 0.8 and fuel_delta_v > 0.0:
   var offset := guidance_position + guidance_velocity*observation_age - state.transform.origin
   var closing := maxf(60.0,state.linear_velocity.length())
   var lead_time := clampf(offset.length()/closing,0.0,2.0)
@@ -103,6 +114,8 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
   var rotation_error := error.normalized()*angle if error.length()>0.0001 else Vector3.UP*angle
   var omega := state.angular_velocity
   var angular_acceleration := (rotation_error*8.0-omega*5.7).limit_length(turn_acceleration_limit)
+  angular_acceleration*=minf(1,control_reserve/maxf(angular_acceleration.length()*state.step,0.000001))
+  control_reserve=maxf(0,control_reserve-angular_acceleration.length()*state.step)
   var local_alpha := state.transform.basis.inverse()*angular_acceleration
   applied_torque = state.transform.basis*(inertia*local_alpha)
   state.apply_torque(applied_torque)
@@ -126,6 +139,38 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
   status="EXPIRED / MISS"
   expired.emit(self)
   call_deferred("queue_free")
+
+func set_manual(value: bool) -> void:
+ manual_mode=value
+ clear_operator_input()
+
+func clear_operator_input() -> void:
+ manual_rotation=Vector3.ZERO
+ manual_translation=Vector2.ZERO
+ manual_throttle=0
+ delivered_rotation=Vector3.ZERO
+ _manual_queue.clear()
+
+func _manual_actuation(state: PhysicsDirectBodyState3D) -> void:
+ status="MANUAL / LINK DELAY" if fuel_delta_v>0 else "MANUAL / BALLISTIC DRY"
+ _manual_queue.append({"deliver":tick+command_delay_ticks,"rotation":manual_rotation.limit_length(),"side":manual_translation.limit_length(),"throttle":clampf(manual_throttle,0,1)})
+ var received: Dictionary={}
+ while not _manual_queue.is_empty() and int(_manual_queue[0].deliver)<=tick:
+  received=_manual_queue.pop_front()
+ if received.is_empty() or fuel_delta_v<=0: return
+ delivered_rotation=received.rotation
+ var local_rate:=state.transform.basis.inverse()*state.angular_velocity
+ var alpha: Vector3=(delivered_rotation*max_manual_rate-local_rate)/0.22
+ alpha=alpha.limit_length(turn_acceleration_limit)
+ if control_reserve>0:
+  alpha*=minf(1,control_reserve/maxf(alpha.length()*state.step,0.000001))
+  control_reserve=maxf(0,control_reserve-alpha.length()*state.step)
+  applied_torque=state.transform.basis*(inertia*alpha)
+  state.apply_torque(applied_torque)
+ var side: Vector2=received.side
+ var force_local:=Vector3(side.x,side.y,0)*lateral_acceleration_limit*mass
+ force_local+=Vector3.FORWARD*float(received.throttle)*thrust_n
+ applied_force=(state.transform.basis*force_local).limit_length(thrust_n)
 
 func _physics_process(_dt: float) -> void:
  if spent: return

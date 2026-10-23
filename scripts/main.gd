@@ -384,7 +384,7 @@ func _physics_process(delta: float) -> void:
  for display in tactical_displays:
   display.source=input_source
   if not display is CombatDisplay: display.queue_redraw()
- input_source.set_orbit_mode(outside and input_source.orbit_held())
+ input_source.set_orbit_mode(_orbit_controls_active())
  if station.occupied and controls_captured:
   PilotInput.sample(ship.command, input_source, delta)
  else:
@@ -402,7 +402,7 @@ func _process(delta: float) -> void:
   audio.exterior=outside
   var seat:=current_station()
   audio.listener_position=seat.position+Vector3(0,0.7,0) if seat!=null else crew.camera.global_position
- if outside and input_source.using_gamepad and input_source.orbit_held():
+ if _orbit_controls_active() and input_source.using_gamepad:
   orbit.turn(input_source.camera_rate() * delta)
   orbit.zoom((Input.get_action_strength("pad_reverse") - Input.get_action_strength("pad_main")) * delta)
  orbit.update(outside_camera, ship.position)
@@ -552,3 +552,6 @@ func _tactical_targets() -> void:
 
 func _new_tactical_display() -> TacticalDisplay:
  return TacticalDisplay.new()
+
+func _orbit_controls_active() -> bool:
+ return outside and input_source.orbit_held()

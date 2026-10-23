@@ -1,6 +1,12 @@
-# DRIFT · Milestone 0.3.2 — Flight Fixes, PlayStation UX & Sound
+# DRIFT · Milestone 0.3.3 — Tactical Combat & Missile Control
 
 Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Kontakt Alpha ergänzt ein echtes physikalisches Gefecht mit Gegner, Raketen und Abwehrdrohne. Drei besetzbare, sicherbare Crewstationen, beobachtungsbasierte Sensorik, simulierte Feuerleitung und zentrale Crew-Schubsicherheit. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
+
+## Neu in 0.3.3
+
+Die Waffenstation besitzt jetzt eine echte orbitierbare **3D-Gefechtskarte** auf ihrem Konsolenbildschirm sowie eine ausdrücklich aktivierbare **manuelle Raketensteuerung**. Eigene Einheiten liefern Navigationsdaten; Gegner erscheinen ausschließlich aus aktuellen Sensormessungen. Vektoren, maximal vier Sekunden Prognose und wachsende Unsicherheit sind gekennzeichnet. Reaktionszeit, endliche Schwenkrate, Zielwechsel und Feuerpausen begrenzen die physikalische Drohnenabwehr. Hauptantrieb, sanft gebündeltes RCS und priorisierte Einschlagswarnungen wurden im echten Audiomixer neu abgestimmt.
+
+**Aktuelle vollständige Kontextbelegung, Messergebnisse, reproduzierbare Gefechte und Grenzen:** [Milestone 0.3.3](docs/tactical-0.3.3.md). Die folgenden 0.3.2-Abschnitte dokumentieren den bisherigen Stand; insbesondere ist H/L1 jetzt der Einstieg in die Raketenansicht, nicht mehr ausschließlich eine Beobachtungsfunktion.
 
 ## Neu in 0.3.2
 

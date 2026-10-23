@@ -9,6 +9,12 @@ var primary_held: bool = false
 var encounter: CombatEncounter
 var mission_status: Label
 var observe_missile: bool = false
+# Operator context, not simulation state. Each station can later own an adapter.
+enum WeaponView { FIRE_CONTROL, MAP, MISSILE }
+var weapon_view: int = WeaponView.FIRE_CONTROL
+var selected_missile_id: String = ""
+var missile_command:=FlightCommand.new()
+var missile_hint: Label
 var end_panel: PanelContainer
 
 func _new_tactical_display() -> TacticalDisplay:
@@ -47,6 +53,10 @@ func _ready() -> void:
  mission_status.position=Vector2(24,12)
  mission_status.add_theme_font_size_override("font_size",19)
  canvas.add_child(mission_status)
+ missile_hint=Label.new()
+ missile_hint.position=Vector2(24,525)
+ missile_hint.add_theme_font_size_override("font_size",22)
+ canvas.add_child(missile_hint)
  end_panel=PanelContainer.new()
  end_panel.position=Vector2(420,230)
  end_panel.custom_minimum_size=Vector2(440,240)
@@ -62,6 +72,16 @@ func _physics_process(dt: float) -> void:
  encounter.weapons_occupied=stations[2].occupied
  encounter.drone_occupied=stations[1].occupied
  encounter.tick(dt)
+ var missile:=selected_missile()
+ if weapon_view==WeaponView.MISSILE and missile!=null and missile.manual_mode:
+  input_source.set_orbit_mode(false)
+  input_source.sample_missile(missile_command,dt)
+  missile.manual_rotation=missile_command.rotation
+  missile.manual_translation=Vector2(missile_command.translation.x,missile_command.translation.y)
+  missile.manual_throttle=missile_command.main_engine
+  if missile.global_position.distance_to(ship.global_position)>4000:
+   _return_fire_control()
+   encounter.last_message="MISSILE LINK LOST / AUTO"
  if encounter.result!="ACTIVE":
   ship.command.clear()
   crew.controls_enabled=false
@@ -70,12 +90,30 @@ func _physics_process(dt: float) -> void:
 func _process(dt: float) -> void:
  super._process(dt)
  if encounter==null: return
+ if weapon_view!=WeaponView.FIRE_CONTROL:
+  status_hint.text="" # Context-specific hints replace the harness shortcuts.
  if observe_missile:
-  for missile in encounter.missiles:
-   if is_instance_valid(missile) and missile.team==0:
-    outside_camera.global_position=missile.global_position+Vector3(12,7,18)
-    outside_camera.look_at(missile.global_position+missile.linear_velocity.normalized()*12,Vector3.UP)
-    break
+  var missile:=selected_missile()
+  if missile==null:
+   _return_fire_control()
+  else:
+   outside_camera.global_position=missile.to_global(Vector3(0,3,14))
+   outside_camera.look_at(missile.global_position-missile.global_basis.z*80,missile.global_basis.y)
+ if weapon_view==WeaponView.MAP:
+  var map:=weapon_map()
+  map.orbit(input_source.movement(),dt)
+  var zoom: float=(input_source.flight_strength("pad_reverse")-input_source.flight_strength("pad_main"))*dt
+  if input_source.using_gamepad: map.zoom(zoom)
+ missile_hint.visible=weapon_view==WeaponView.MISSILE
+ if missile_hint.visible:
+  var missile:=selected_missile()
+  if missile!=null:
+   var pad:=input_source.using_gamepad
+   missile_hint.text="%s / %s / dv %.0f m/s / control %.1f rad/s / LINK 183 ms"%[missile.name,"MANUAL" if missile.manual_mode else "AUTO VIEW",missile.fuel_delta_v,missile.control_reserve]
+   missile_hint.text+="\n"+("%s: manual/auto | %s: console | %s: next missile"%[input_source.button_label(JOY_BUTTON_RIGHT_STICK),input_source.button_label(JOY_BUTTON_B),input_source.button_label(JOY_BUTTON_DPAD_RIGHT)] if pad else "M: manual/auto | Esc: console | arrows: select missile")
+   if missile.manual_mode:
+    missile_hint.text+="\n"+("Left stick: pitch/yaw | Right stick: side RCS | %s: burn | %s/%s: roll"%["R2" if input_source.symbol_scheme()==1 else "RT",input_source.button_label(JOY_BUTTON_LEFT_SHOULDER),input_source.button_label(JOY_BUTTON_RIGHT_SHOULDER)] if pad else "Mouse: pitch/yaw | A/D + Space/Shift: side RCS | LMB: burn | Q/E: roll")
+   missile_hint.text+="\n"+("%s: leave station | %s: exterior | %s: pause"%[input_source.button_label(JOY_BUTTON_A),input_source.button_label(JOY_BUTTON_Y),input_source.button_label(JOY_BUTTON_START)] if pad else "F: leave station | V: exterior | P: pause")
  mission_status.text="ALPHA | %s | %s | %.0f s | seed %d | %s: pause"%[CombatProfile.MODE_NAMES[encounter.control_mode],CombatProfile.DIFFICULTY_NAMES[encounter.difficulty],encounter.elapsed,setup_seed,input_source.button_label(JOY_BUTTON_START) if input_source.using_gamepad else "P"]
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -84,6 +122,16 @@ func _unhandled_input(event: InputEvent) -> void:
   primary_held=false
   return
  var occupied := current_station()
+ if occupied==stations[2]:
+  if event.is_action_pressed("interact"):
+   _leave_pilot()
+   return
+  if weapon_view!=WeaponView.FIRE_CONTROL:
+   _weapon_context_input(event)
+   return
+  if event.is_action_pressed("tactical_map"):
+   _set_weapon_view(WeaponView.MAP)
+   return
  if occupied!=null and occupied!=station and not outside:
   var handled: bool = true
   if event.is_action_pressed("combat_primary"):
@@ -100,9 +148,7 @@ func _unhandled_input(event: InputEvent) -> void:
   elif event.is_action_pressed("combat_hold"):
    if occupied==stations[1]: encounter.drone_command("hold")
    else:
-    observe_missile=not observe_missile
-    outside=observe_missile
-    _update_view()
+    _set_weapon_view(WeaponView.MISSILE)
   elif event.is_action_pressed("combat_recall") and occupied==stations[1]: encounter.drone_command("recall")
   elif event.is_action_pressed("combat_automation") and not outside:
    if occupied==stations[2]: encounter.grant_role("weapons",not encounter.automatic_weapons)
@@ -117,6 +163,7 @@ func _unhandled_input(event: InputEvent) -> void:
   encounter.events.record(ship.tick,"target_change","DRIFT",{"contact_id":sensors.selected_id})
 
 func _mission_ended(outcome: String) -> void:
+ _return_fire_control()
  input_source.clear_mouse()
  controls_captured=false
  crew.controls_enabled=false
@@ -144,14 +191,109 @@ func _mission_ended(outcome: String) -> void:
  restart.grab_focus()
 
 func _leave_pilot() -> void:
+ _return_fire_control()
  observe_missile=false
  primary_held=Input.is_action_pressed("combat_primary")
  super._leave_pilot()
 
 func _toggle_exterior() -> void:
+ var was_outside:=outside and weapon_view==WeaponView.FIRE_CONTROL
+ _return_fire_control()
+ outside=was_outside
  observe_missile=false
  super._toggle_exterior()
 
 func _pause_changed(paused: bool) -> void:
+ var missile:=selected_missile()
+ if missile!=null: missile.clear_operator_input()
  primary_held=Input.is_action_pressed("combat_primary")
  super._pause_changed(paused)
+
+func selected_missile() -> MissileBody:
+ if encounter==null: return null
+ for missile in encounter.missiles:
+  if is_instance_valid(missile) and not missile.spent and missile.team==0 and String(missile.name)==selected_missile_id: return missile
+ return null
+
+func cycle_missile(direction: int) -> void:
+ var available: Array[MissileBody]=[]
+ for missile in encounter.missiles:
+  if is_instance_valid(missile) and not missile.spent and missile.team==0: available.append(missile)
+ if available.is_empty():
+  _return_fire_control()
+  encounter.last_message="NO LIVE OWN MISSILE"
+  return
+ var old:=selected_missile()
+ var index:=available.find(old)
+ if old!=null: old.set_manual(false)
+ selected_missile_id=String(available[posmod(index+direction,available.size())].name)
+ input_source.reset_context()
+
+func weapon_map() -> TacticalMap:
+ for display in tactical_displays:
+  if display.weapons: return (display as CombatDisplay).tactical_map
+ return null
+
+func _set_weapon_view(value: int) -> void:
+ _return_fire_control()
+ if value==WeaponView.MISSILE:
+  cycle_missile(1)
+  if selected_missile()==null: return
+ weapon_view=value
+ observe_missile=value==WeaponView.MISSILE
+ outside=observe_missile
+ for display in tactical_displays:
+  if display.weapons: (display as CombatDisplay).presentation_mode=value
+ input_source.reset_context()
+ _update_view()
+
+func _return_fire_control() -> void:
+ var missile:=selected_missile()
+ if missile!=null: missile.set_manual(false)
+ weapon_view=WeaponView.FIRE_CONTROL
+ observe_missile=false
+ outside=false
+ for display in tactical_displays:
+  if display is CombatDisplay: display.presentation_mode=0
+ input_source.reset_context()
+ _update_view()
+
+func _weapon_context_input(event: InputEvent) -> void:
+ if event.is_action_pressed("ui_cancel") or event.is_action_pressed("tactical_map"):
+  _return_fire_control()
+ elif event.is_action_pressed("exterior"):
+  _toggle_exterior()
+ elif weapon_view==WeaponView.MAP:
+  var map:=weapon_map()
+  if event.is_action_pressed("target_previous"): map.cycle(-1)
+  elif event.is_action_pressed("target_next"): map.cycle(1)
+  elif event.is_action_pressed("sensor_track"): map.focus_selected()
+  elif event.is_action_pressed("combat_automation"):
+   map.follow_selected=false
+   map.focus=Vector3.ZERO
+   map.yaw=0.6
+   map.pitch=0.45
+   map.distance=22
+   map.update_camera()
+  elif event.is_action_pressed("zoom_in"): map.zoom(-0.15)
+  elif event.is_action_pressed("zoom_out"): map.zoom(0.15)
+  elif event is InputEventMouseMotion: map.orbit(event.relative*0.002,1)
+ elif weapon_view==WeaponView.MISSILE:
+  var missile:=selected_missile()
+  if missile==null:
+   _return_fire_control()
+  elif event.is_action_pressed("target_previous"): cycle_missile(-1)
+  elif event.is_action_pressed("target_next"): cycle_missile(1)
+  elif event.is_action_pressed("missile_manual"):
+   missile.set_manual(not missile.manual_mode)
+   input_source.reset_context()
+  elif event.is_action_pressed("combat_hold") and not missile.manual_mode: _return_fire_control()
+  elif event is InputEventMouseMotion and missile.manual_mode: input_source.add_flight_mouse(event.relative)
+
+func _orbit_controls_active() -> bool:
+ return false if weapon_view==WeaponView.MISSILE else super._orbit_controls_active()
+
+func _active_device_changed(gamepad: bool) -> void:
+ var missile:=selected_missile()
+ if missile!=null: missile.clear_operator_input()
+ super._active_device_changed(gamepad)

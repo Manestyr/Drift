@@ -32,4 +32,5 @@ run_godot --headless --fixed-fps 60 --path . --script res://tests/combat_test.gd
 run_godot --headless --fixed-fps 60 --path . --script res://tests/agency_test.gd
 
 run_godot --headless --fixed-fps 60 --path . --script res://tests/flight_ps_sound_test.gd
+run_godot --headless --fixed-fps 60 --path . --script res://tests/tactical_combat_test.gd
 python3 tools/check_audio.py

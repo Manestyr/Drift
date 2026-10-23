@@ -15,7 +15,9 @@ var alerts: Array[AudioStreamPlayer] = []
 var clips: Dictionary = {}
 var played: Dictionary = {}
 var encounter: CombatEncounter
-var _rcs_timer: float = 0.0
+var _rcs_level: float = 0.0
+var _rcs_running: bool = false
+var _warning_duck: float = 0.0
 var _alarm_timer: float = 0.0
 var _sensor_timer: float = 0.0
 var _last_contacts: int = 0
@@ -41,6 +43,11 @@ func _ready() -> void:
  engine.stream=loop
  engine.volume_db=-80
  for i in 6: structural.append(_structural_player())
+ var rcs_loop: AudioStreamWAV=clips.rcs
+ rcs_loop.loop_mode=AudioStreamWAV.LOOP_FORWARD
+ rcs_loop.loop_end=rcs_loop.data.size()/2
+ structural[0].stream=rcs_loop
+ structural[0].attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED
  for i in 4:
   var player:=AudioStreamPlayer.new()
   add_child(player)
@@ -67,9 +74,9 @@ static func ensure_buses() -> void:
 func _structural_player() -> AudioStreamPlayer3D:
  var player:=AudioStreamPlayer3D.new()
  player.bus="Ship"
- player.unit_size=18
+ player.unit_size=35
  player.max_distance=90
- player.max_db=-8
+ player.max_db=0
  add_child(player)
  return player
 
@@ -85,18 +92,18 @@ func cue(clip: String, bus: String = "UI", local_point: Vector3 = Vector3.ZERO) 
  if bus=="Ship" and exterior: return
  played[clip]=int(played.get(clip,0))+1
  if bus=="Ship":
-  var player:=structural[_voice%structural.size()]
+  var player:=structural[1+_voice%(structural.size()-1)]
   _voice+=1
   player.position=local_point
   player.stream=clips[clip]
   player.volume_db=-12
   if playback_enabled: player.play()
  else:
-  var player:=alerts[_alert_voice%alerts.size()]
+  var player:=alerts[0] if bus=="Warnings" else alerts[1+_alert_voice%(alerts.size()-1)]
   _alert_voice+=1
   player.bus=bus
   player.stream=clips[clip]
-  player.volume_db=-16
+  player.volume_db=2 if clip=="alarm" else (-8 if bus=="Warnings" else -16)
   if playback_enabled: player.play()
 
 func attach_combat(value: CombatEncounter) -> void:
@@ -125,14 +132,25 @@ func _process(dt: float) -> void:
  if _engine_level*_structural_gain>0.005:
   if playback_enabled and not engine.playing: engine.play()
  elif engine.playing: engine.stop()
- engine.volume_db=linear_to_db(maxf(0.0001,_engine_level*_structural_gain*0.4))
+ engine.volume_db=linear_to_db(maxf(0.0001,_engine_level*_structural_gain*1.4*(0.2 if _warning_duck>0 else 1.0)))
  engine.pitch_scale=0.8+_engine_level*0.35
- for voice in structural:
-  voice.volume_db=-12 if not exterior else -80
- _rcs_timer-=dt
- if not exterior and _rcs_timer<=0 and (ship.computer.force_local.length()>1000 or ship.computer.torque_local.length()>1000):
-  cue("rcs","Ship",listener_position+Vector3(2,0,1))
-  _rcs_timer=0.28
+ for i in range(1,structural.size()):
+  structural[i].volume_db=-12 if not exterior else -80
+ # Audio-only duty smoothing: no recurring transients and no physics changes.
+ var duty:=maxf(ship.computer.force_local.length()/maxf(ship.rcs_thrust_n,1),ship.computer.torque_local.length()/maxf(ship.torque_limits_nm.length(),1))
+ _rcs_level=lerpf(_rcs_level,clampf(duty,0,1),1-exp(-dt/0.15))
+ var rcs_gain:=sqrt(_rcs_level)*_structural_gain*0.25
+ structural[0].position=listener_position+Vector3(2,0,1)
+ structural[0].volume_db=linear_to_db(maxf(0.0001,rcs_gain))
+ if rcs_gain>0.002:
+  if not _rcs_running:
+   played["rcs"]=int(played.get("rcs",0))+1
+   _rcs_running=true
+   if playback_enabled: structural[0].play()
+ elif _rcs_running:
+  structural[0].stop()
+  _rcs_running=false
+ _warning_duck=maxf(0,_warning_duck-dt)
  _alarm_timer-=dt
  _sensor_timer-=dt
  if encounter!=null:
@@ -144,9 +162,10 @@ func _process(dt: float) -> void:
     if closing>5: nearest=minf(nearest,distance/closing)
   if nearest<12 and _alarm_timer<=0:
    cue("alarm","Warnings")
-   _alarm_timer=clampf(nearest/12,0.25,1.4)
+   _warning_duck=0.4
+   _alarm_timer=clampf(nearest/6,0.65,2.0)
   var count:=encounter.player_sensors.contacts.size()
-  if count>_last_contacts and _sensor_timer<=0:
+  if count>_last_contacts and _sensor_timer<=0 and _warning_duck<=0:
    cue("sensor","Warnings")
    _sensor_timer=3.0
   _last_contacts=count

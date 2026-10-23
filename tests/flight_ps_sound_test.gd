@@ -165,6 +165,11 @@ func run() -> void:
  # Dedicated long encounter: same HARD seed/guard schedule as the existing
  # 113-second balance case, but every weapon command comes through controller input.
  game=mission(1741)
+ # This is an input/ammunition soak rig, not a drone balance assertion. Keep
+ # both propulsion systems at rated efficiency through real impacts so the
+ # 0.3.3 defense limits cannot terminate the rig before all 16 launches.
+ for body: ShipPhysics in [game.ship,game.encounter.enemy]:
+  for system: String in body.damage_model.health: body.damage_model.health[system]=1000.0
  source=game.input_source
  await ticks(120)
  game.crew.position=game.stations[1].position+Vector3(0,0,0.8)

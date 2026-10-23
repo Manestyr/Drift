@@ -228,3 +228,29 @@ func _hints(piloting: bool) -> String:
  if not piloting:
   return "WASD: walk | Mouse: look | F: seat | V: exterior | G: grid | P: pause | Esc: mouse"
  return "F: seat | V: exterior | P: pause/settings | Esc: mouse | F5: reset\nMouse: pitch/yaw | WASD + Space/Shift: RCS | Q/E: roll | LMB: main\nX: brake | Ctrl+W/A/Space/R: axis/roll brake | T: rate assist | H: hold | G: grid | C: drift | B: retrograde"
+
+func sample_missile(command: FlightCommand, delta: float) -> void:
+ # A separate station adapter: pilot assist/rebound advanced buttons do not own
+ # missile controls. It shares mapped analog axes and neutral/context filtering.
+ _clear_released()
+ if not using_gamepad:
+  var missile_mouse:=mouse_steer
+  sample_flight(command,delta)
+  # Arrow keys select ordnance in this context; they must not also steer it.
+  command.rotation.x=-missile_mouse.y
+  command.rotation.y=-missile_mouse.x
+  if Input.is_action_pressed("flight_modifier"):
+   command.rotation.x=0
+   command.rotation.y=0
+  command.rotation=command.rotation.limit_length()
+  command.brake_all=false
+  command.brake_axes=Vector3.ZERO
+  command.brake_roll=false
+  command.drift_cancel=false
+  return
+ command.clear()
+ var left:=Vector2.ZERO if blocked_actions.any(func(a: String) -> bool: return a.begins_with("pad_left_")) else stick("pad_left")*settings.sensitivity
+ var right:=Vector2.ZERO if blocked_actions.any(func(a: String) -> bool: return a.begins_with("pad_right_")) else stick("pad_right")
+ command.rotation=Vector3(left.y if settings.invert_y else -left.y,-left.x,flight_strength("pad_roll_left")-flight_strength("pad_roll_right")).limit_length()
+ command.translation=Vector3(right.x,-right.y,0).limit_length()
+ command.main_engine=flight_strength("pad_main")

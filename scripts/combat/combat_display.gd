@@ -4,6 +4,9 @@ extends TacticalDisplay
 var text_nodes: Dictionary = {}
 var text_generation: int = 0
 var refresh_seconds: float = 0.0
+var presentation_mode: int = 0
+var tactical_map: TacticalMap
+var pending_lines: Dictionary = {}
 var encounter: CombatEncounter
 const BG:=Color(0.015,0.027,0.033)
 const PANEL:=Color(0.035,0.065,0.075)
@@ -20,34 +23,52 @@ func _ready() -> void:
  if font is FontFile:
   (font as FontFile).multichannel_signed_distance_field=true
 
+ tactical_map=TacticalMap.new()
+ add_child(tactical_map)
+ tactical_map.hide()
+
 func _process(dt: float) -> void:
  # Sensors are 2 Hz; 10-Hz presentation keeps maps responsive without repeatedly
  # reshaping dozens of labels at the 60-Hz authoritative simulation rate.
  refresh_seconds+=dt
  if refresh_seconds>=0.1:
   refresh_seconds=0
+  if tactical_map!=null:
+   tactical_map.visible=weapons and presentation_mode==1
+   tactical_map.viewport.render_target_update_mode=SubViewport.UPDATE_ALWAYS if tactical_map.visible else SubViewport.UPDATE_DISABLED
+   if tactical_map.visible and encounter!=null:
+    var own: Array[Node3D]=[encounter.player]
+    for missile in encounter.missiles:
+     if is_instance_valid(missile) and not missile.spent and missile.team==0: own.append(missile)
+    if is_instance_valid(encounter.drone): own.append(encounter.drone)
+    tactical_map.model.sample(encounter.player,sensors,own)
+    tactical_map.refresh()
   queue_redraw()
 
 func line(y: float, value: String, color: Color = Color(0.72,0.84,0.83), x: float = 32.0, pixels: int = 24) -> void:
  var id: String="%s/%s"%[x,y]
- if not text_nodes.has(id):
-  var label:=Label.new()
-  label.mouse_filter=Control.MOUSE_FILTER_IGNORE
-  label.clip_text=true
-  label.add_theme_font_override("font",font)
-  add_child(label)
-  text_nodes[id]=label
- var label: Label=text_nodes[id]
- label.position=Vector2(x,y-pixels)
- label.size=Vector2(932-x,pixels*1.5)
- if label.get_theme_font_size("font_size")!=pixels:
-  label.add_theme_font_size_override("font_size",pixels)
- if label.get_theme_color("font_color")!=color:
-  label.add_theme_color_override("font_color",color)
- if label.text!=value: label.text=value
- label.set_meta("generation",text_generation)
- label.show()
- label.queue_redraw()
+ pending_lines[id]={"x":x,"y":y,"text":value,"color":color,"pixels":pixels}
+
+func _apply_lines(lines: Dictionary) -> void:
+ # Mutate Controls after drawing has finished, not from NOTIFICATION_DRAW.
+ for id: String in lines:
+  var data: Dictionary=lines[id]
+  if not text_nodes.has(id):
+   var created:=Label.new()
+   created.mouse_filter=Control.MOUSE_FILTER_IGNORE
+   created.clip_text=true
+   created.add_theme_font_override("font",font)
+   add_child(created)
+   text_nodes[id]=created
+  var label: Label=text_nodes[id]
+  label.position=Vector2(data.x,data.y-data.pixels)
+  label.size=Vector2(932-data.x,data.pixels*1.5)
+  if label.get_theme_font_size("font_size")!=data.pixels: label.add_theme_font_size_override("font_size",data.pixels)
+  if label.get_theme_color("font_color")!=data.color: label.add_theme_color_override("font_color",data.color)
+  label.text=data.text
+  label.show()
+ for id: String in text_nodes:
+  if not lines.has(id): text_nodes[id].hide()
 
 func key(keyboard: String, button: int) -> String:
  return source.button_label(button) if source!=null and source.using_gamepad else keyboard
@@ -65,7 +86,7 @@ func next_action() -> String:
  return "WAIT / "+launcher.last_status.replace("DENIED / ","").replace("BLOCKED / ","")
 
 func _draw() -> void:
- text_generation+=1
+ pending_lines.clear()
  if encounter==null:
   super._draw()
   _finish_labels()
@@ -75,14 +96,23 @@ func _draw() -> void:
  line(46,"WEAPONS / DRIFT" if weapons else "DRONE CONTROL",BLUE,28,34)
  line(78,encounter.control_label(weapons),DIM,28,24)
  draw_line(Vector2(28,92),Vector2(932,92),DIM.darkened(0.5),2)
- if weapons: _weapon_face()
+ if weapons and presentation_mode==1: _map_face()
+ elif weapons: _weapon_face()
  else: _drone_face()
- _controls()
+ if presentation_mode!=1 or not weapons: _controls()
  _finish_labels()
 
 func _finish_labels() -> void:
- for label: Label in text_nodes.values():
-  if label.get_meta("generation",-1)!=text_generation: label.hide()
+ _apply_lines.call_deferred(pending_lines.duplicate(true))
+
+func _map_face() -> void:
+ line(530,"3D / XYZ | dotted: forecast <=4s | spheres: uncertainty",DIM,28,24)
+ var selected:=tactical_map.model.find(tactical_map.selected_id)
+ if selected!=null:
+  line(562,"%s | p[%+.0f %+.0f %+.0f]m | %s | ±%.0fm"%[selected.id,selected.position.x,selected.position.y,selected.position.z,"v %.0f m/s"%selected.velocity.length() if selected.velocity_known else "v UNKNOWN",selected.uncertainty_m],GREEN,28,23)
+ var zoom_hint: String=("R2/L2" if source.symbol_scheme()==1 else "RT/LT") if source!=null and source.using_gamepad else "wheel"
+ line(595,"%s: orbit | %s: zoom | %s: focus | %s: select"%["Left stick" if source!=null and source.using_gamepad else "WASD/mouse",zoom_hint,key("T",JOY_BUTTON_X),key("arrows",JOY_BUTTON_DPAD_RIGHT)],DIM,28,23)
+ line(626,"%s: return | %s: reset view | %s: leave"%[key("Esc",JOY_BUTTON_B),key("O",JOY_BUTTON_RIGHT_STICK),key("F",JOY_BUTTON_A)],DIM,28,24)
 
 func _weapon_face() -> void:
  var target:=sensors.selected()
@@ -150,7 +180,7 @@ func _controls() -> void:
  if weapons:
   line(530,"%s: target   %s: track   %s: leave"%[key("←/→",JOY_BUTTON_DPAD_RIGHT),key("T",JOY_BUTTON_X),key("F",JOY_BUTTON_A)],DIM,32,26)
   line(568,"%s: rack   %s: arm/safe   %s: FIRE"%[key("L",JOY_BUTTON_DPAD_UP),key("K",JOY_BUTTON_DPAD_DOWN),key("R",JOY_BUTTON_RIGHT_SHOULDER)],AMBER,32,28)
-  line(607,"%s: missile cam   %s: role consent"%[key("H",JOY_BUTTON_LEFT_SHOULDER),key("O",JOY_BUTTON_RIGHT_STICK)],DIM,32,26)
+  line(607,"%s: missile cam   %s: 3D MAP   %s: role"%[key("H",JOY_BUTTON_LEFT_SHOULDER),key("Tab",JOY_BUTTON_BACK),key("O",JOY_BUTTON_RIGHT_STICK)],DIM,32,26)
  else:
   line(530,"%s: deploy   %s: waypoint   %s: DEFEND"%[key("L",JOY_BUTTON_DPAD_UP),key("K",JOY_BUTTON_DPAD_DOWN),key("R",JOY_BUTTON_RIGHT_SHOULDER)],GREEN,32,26)
   line(568,"%s: HOLD   %s: RECALL   %s: leave"%[key("H",JOY_BUTTON_LEFT_SHOULDER),key("C",JOY_BUTTON_BACK),key("F",JOY_BUTTON_A)],DIM,32,26)

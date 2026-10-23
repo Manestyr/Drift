@@ -1,0 +1,62 @@
+[
+ {
+  "drone_hits": 0,
+  "fuel_used": 0.0,
+  "hits": 3,
+  "hull": 0.0,
+  "intercepts": 0,
+  "max_slew": 0.0,
+  "missiles": 3,
+  "placement": "none",
+  "shots": 0,
+  "unlimited": false
+ },
+ {
+  "drone_hits": 0,
+  "fuel_used": 54.8730734323408,
+  "hits": 2,
+  "hull": 32.0,
+  "intercepts": 1,
+  "max_slew": 0.0500000678002834,
+  "missiles": 3,
+  "placement": "guard",
+  "shots": 1,
+  "unlimited": false
+ },
+ {
+  "drone_hits": 0,
+  "fuel_used": 360.165255088467,
+  "hits": 3,
+  "hull": 0.0,
+  "intercepts": 0,
+  "max_slew": 0.0,
+  "missiles": 3,
+  "placement": "rear",
+  "shots": 0,
+  "unlimited": false
+ },
+ {
+  "drone_hits": 0,
+  "fuel_used": 54.8730734323408,
+  "hits": 0,
+  "hull": 100.0,
+  "intercepts": 1,
+  "max_slew": 0.0500000081956387,
+  "missiles": 1,
+  "placement": "guard",
+  "shots": 1,
+  "unlimited": false
+ },
+ {
+  "drone_hits": 0,
+  "fuel_used": 54.8730734323408,
+  "hits": 1,
+  "hull": 66.0,
+  "intercepts": 2,
+  "max_slew": 1.58078694343567,
+  "missiles": 3,
+  "placement": "guard",
+  "shots": 5,
+  "unlimited": true
+ }
+]
