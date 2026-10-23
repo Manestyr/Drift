@@ -30,6 +30,9 @@ var weapons_occupied: bool = false
 var drone_occupied: bool = false
 var elapsed: float = 0.0
 var result: String = "ACTIVE"
+var end_reason: String = ""
+var exhaustion_seconds: float = 0.0
+const EXHAUSTION_GRACE := 5.0
 var last_player_shot: float = -2.0
 var last_enemy_shot: float = -4.0
 var selected_waypoint: int = 0
@@ -46,6 +49,8 @@ func _ready() -> void:
  enemy_sensors.measurement_resolution_m=profile.precision
  enemy_sensors.tracking_refinement=true
  player_sensors.tracking_refinement=true
+ player_launcher.owner_team=0
+ enemy_launcher.owner_team=1
  player_launcher.require_solution=true
  enemy_launcher.require_solution=true
  if is_instance_valid(weapons_station):
@@ -169,6 +174,7 @@ func tick(dt: float) -> void:
  if is_instance_valid(enemy_drone): enemy_drone.targets=all_targets
  if player.damage_model.incapable(): finish("DEFEAT")
  elif enemy.damage_model.incapable(): finish("VICTORY")
+ else: _check_exhaustion(dt)
 
 func hostile_ship(suite: SensorSuite, team: int) -> SensorContact:
  for contact in suite.contacts:
@@ -212,7 +218,8 @@ func finish(outcome: String) -> void:
  result=outcome
  player.command.clear()
  enemy.command.clear()
- events.record(player.tick,"incapacitated",String(player.name if outcome=="DEFEAT" else enemy.name),{"result":outcome,"elapsed":elapsed})
+ if end_reason.is_empty(): end_reason="Combat incapacity"
+ events.record(player.tick,"incapacitated" if outcome in ["VICTORY","DEFEAT"] else "mission_end",String(enemy.name if outcome=="VICTORY" else player.name),{"result":outcome,"elapsed":elapsed,"reason":end_reason})
  ended.emit(outcome)
 
 func deploy_drone(automatic: bool = false) -> bool:
@@ -232,7 +239,8 @@ func deploy_drone(automatic: bool = false) -> bool:
   drone_rounds=drone.ammunition
   drone_fuel=drone.fuel_delta_v
   drone_available=true
-  last_message="DRONE DOCKED / NO FREE REFUEL OR AMMO")
+  last_message="DRONE DOCKED / NO FREE REFUEL OR AMMO"
+  events.record(player.tick,"drone_recovered","BLUE-D1"))
  drone.round_fired.connect(func(round_body: DefenseRound) -> void:
   round_body.struck.connect(_intercept))
  drone_available=false
@@ -314,3 +322,25 @@ func _missile_outcome(missile: MissileBody, outcome: String) -> void:
  missile_history.append({"id":String(missile.name),"team":missile.team,"outcome":outcome,"seconds":elapsed})
  events.record(player.tick,"missile_outcome",String(missile.name),{"outcome":outcome,"team":missile.team})
  if missile.team==0: last_message=String(missile.name)+" / "+outcome
+
+func offensive_capability(body: ShipPhysics, launcher: MissileLauncher) -> bool:
+ # Defense guns can only hit missiles, never ships; fuel is not weaponry.
+ return body.damage_model.efficiency("weapons")>0 and launcher.ammunition[0]+launcher.ammunition[1]>0
+
+func _check_exhaustion(dt: float) -> void:
+ var active_ordnance:=false
+ for missile in missiles:
+  if is_instance_valid(missile) and not missile.spent: active_ordnance=true
+ if active_ordnance or offensive_capability(player,player_launcher) or offensive_capability(enemy,enemy_launcher):
+  exhaustion_seconds=0
+  return
+ exhaustion_seconds+=dt
+ last_message="NO OFFENSIVE STORES / ceasefire in %.0f s"%maxf(0,EXHAUSTION_GRACE-exhaustion_seconds)
+ if exhaustion_seconds>=EXHAUSTION_GRACE:
+  end_reason="Both ships lack offensive weapons; all missiles resolved"
+  finish("DRAW")
+
+func disengage() -> void:
+ if result!="ACTIVE": return
+ end_reason="Pilot ordered disengagement; no kill awarded"
+ finish("ABORTED")

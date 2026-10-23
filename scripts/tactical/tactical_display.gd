@@ -1,6 +1,7 @@
 class_name TacticalDisplay
 extends Control
 
+var source: PlayerInput
 var sensors: SensorSuite
 var fire_control: FireControl
 var safety: CrewSafety
@@ -12,7 +13,8 @@ func _ready() -> void:
  mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func line(y: float, value: String, color: Color = Color(0.72, 0.84, 0.83), x: float = 32.0, pixels: int = 24) -> void:
- draw_string(font, Vector2(x,y), value, HORIZONTAL_ALIGNMENT_LEFT, -1, pixels, color)
+ var shown:=ControllerLabels.adapt(value,source.symbol_scheme()) if source!=null and source.using_gamepad else value
+ draw_string(font, Vector2(x,y), shown, HORIZONTAL_ALIGNMENT_LEFT, -1, pixels, color)
 
 func _draw() -> void:
  draw_rect(Rect2(Vector2.ZERO,size), Color(0.015,0.027,0.033))

@@ -36,6 +36,9 @@ func _ready() -> void:
  for display in tactical_displays:
   (display as CombatDisplay).encounter=encounter
  sensor_targets=encounter.observed_targets()
+ audio.attach_combat(encounter)
+ pause_menu.disengage_button.show()
+ pause_menu.disengage_requested.connect(encounter.disengage)
  encounter.ended.connect(_mission_ended)
  var canvas := CanvasLayer.new()
  canvas.layer=3
@@ -73,7 +76,7 @@ func _process(dt: float) -> void:
     outside_camera.global_position=missile.global_position+Vector3(12,7,18)
     outside_camera.look_at(missile.global_position+missile.linear_velocity.normalized()*12,Vector3.UP)
     break
- mission_status.text="ALPHA | %s | %s | %.0f s | seed %d | P/Options: mission setup"%[CombatProfile.MODE_NAMES[encounter.control_mode],CombatProfile.DIFFICULTY_NAMES[encounter.difficulty],encounter.elapsed,setup_seed]
+ mission_status.text="ALPHA | %s | %s | %.0f s | seed %d | %s: pause"%[CombatProfile.MODE_NAMES[encounter.control_mode],CombatProfile.DIFFICULTY_NAMES[encounter.difficulty],encounter.elapsed,setup_seed,input_source.button_label(JOY_BUTTON_START) if input_source.using_gamepad else "P"]
 
 func _unhandled_input(event: InputEvent) -> void:
  if encounter==null or encounter.result!="ACTIVE": return
@@ -81,7 +84,7 @@ func _unhandled_input(event: InputEvent) -> void:
   primary_held=false
   return
  var occupied := current_station()
- if occupied!=null and occupied!=station:
+ if occupied!=null and occupied!=station and not outside:
   var handled: bool = true
   if event.is_action_pressed("combat_primary"):
    if primary_held: return
@@ -105,7 +108,9 @@ func _unhandled_input(event: InputEvent) -> void:
    if occupied==stations[2]: encounter.grant_role("weapons",not encounter.automatic_weapons)
    else: encounter.grant_role("drone",not encounter.automatic_drone)
   else: handled=false
-  if handled: return
+  if handled:
+   audio.cue("confirm")
+   return
  var selected_before := sensors.selected_id
  super._unhandled_input(event)
  if selected_before!=sensors.selected_id:
@@ -119,10 +124,13 @@ func _mission_ended(outcome: String) -> void:
  var rows := VBoxContainer.new()
  end_panel.add_child(rows)
  var title := Label.new()
- title.text=("SIEG" if outcome=="VICTORY" else "NIEDERLAGE")+" / %.1f s"%encounter.elapsed
+ title.text={"VICTORY":"SIEG","DEFEAT":"NIEDERLAGE","DRAW":"UNENTSCHIEDEN","ABORTED":"ABGEBROCHEN"}.get(outcome,outcome)+" / %.1f s"%encounter.elapsed
  title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
  title.add_theme_font_size_override("font_size",30)
  rows.add_child(title)
+ var reason:=Label.new()
+ reason.text=encounter.end_reason
+ reason.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  var restart := Button.new()
  restart.text="Kontakt Alpha neu starten"
  restart.pressed.connect(func() -> void: MissionSetup.launch.call_deferred(get_tree(),setup_mode,setup_difficulty,setup_seed,setup_weapon_grant,setup_drone_grant))
@@ -131,6 +139,7 @@ func _mission_ended(outcome: String) -> void:
  free.text="Zum freien Flug"
  free.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/main.tscn"))
  rows.add_child(free)
+ rows.add_child(reason)
  end_panel.show()
  restart.grab_focus()
 

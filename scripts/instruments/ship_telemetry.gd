@@ -31,6 +31,10 @@ var retrograde_active: bool = false
 var negative_limits: Vector3 = Vector3.ZERO
 var positive_limits: Vector3 = Vector3.ZERO
 var crew_safety_status: String = "NO CREW MODEL"
+var main_force_n: float = 0.0
+var brake_force_local: Vector3 = Vector3.ZERO
+var reverse_force_n: float = 0.0
+var engine_health: float = 1.0
 var main_limit: float = 0.0
 
 static func capture(ship: ShipPhysics, state: PhysicsDirectBodyState3D = null) -> ShipTelemetry:
@@ -66,6 +70,10 @@ static func capture(ship: ShipPhysics, state: PhysicsDirectBodyState3D = null) -
  data.retrograde_active = ship.computer.retrograde_active
  data.negative_limits = ship.negative_force_limits
  data.positive_limits = ship.positive_force_limits
+ data.main_force_n=ship.applied_main_thrust_n
+ data.brake_force_local=ship.computer.automatic_force_local
+ data.reverse_force_n=maxf(0,ship.computer.manual_force_local.z)
+ data.engine_health=ship.damage_model.efficiency("main") if ship.damage_model!=null else 1.0
  data.main_limit = ship.main_thrust_n
  return data
 

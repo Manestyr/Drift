@@ -2,6 +2,7 @@ class_name MissileLauncher
 extends RefCounted
 
 var require_solution: bool = false
+var owner_team: int = -1
 var ammunition: Array[int] = [4,4]
 var selected_launcher: int = 0
 var armed: bool = false
@@ -25,6 +26,7 @@ func authorize(contact: SensorContact, damage: ComponentDamage) -> bool:
   last_status="DENIED / SENSOR TRACK"
  elif require_solution and (contact.solution_progress<1.0 or contact.lock_quality<0.7):
   last_status="BLOCKED / BUILD LOCK %.0f%%"%(contact.solution_progress*100)
+ elif owner_team>=0 and contact.team==owner_team: last_status="DENIED / FRIENDLY IFF"
  elif contact.kind!="ship": last_status="DENIED / SHIP TARGET REQUIRED"
  else:
   last_status="READY"

@@ -27,6 +27,8 @@ var debug_panel: PanelContainer
 var stress_overlay: ColorRect
 var controls_captured: bool = true
 var outside: bool = false
+var audio: ShipAudio
+var _input_station: CrewStation
 var exposure: float = 0.0
 @export var g_effect_gain: float = 0.12
 @export var g_effect_response_seconds: float = 3.0
@@ -51,6 +53,12 @@ func _ready() -> void:
  pause_menu.camera_requested.connect(_toggle_exterior)
  pause_menu.attitude_capture_requested.connect(func() -> void: ship.computer.capture_attitude(ship.global_basis))
  add_child(pause_menu)
+ audio=ShipAudio.new()
+ audio.ship=ship
+ audio.source=input_source
+ interior.audio_listener_enable_3d=true
+ interior.add_child(audio)
+ pause_menu.audio_level_changed.connect(audio.set_level)
  Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _box(parent: Node3D, at: Vector3, size: Vector3, color: Color, solid: bool = false) -> MeshInstance3D:
@@ -224,6 +232,10 @@ func _ui() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
  var occupied := current_station()
+ if audio!=null:
+  if event.is_action_pressed("interact"): audio.cue("confirm")
+  elif occupied!=null and occupied!=station and (event.is_action_pressed("sensor_track") or event.is_action_pressed("target_previous") or event.is_action_pressed("target_next")):
+   audio.cue("ui")
  var advanced_reserved := occupied == station and input_source.advanced_consumes(event)
  if event.is_action_pressed("secure_crew") and occupied != null and not advanced_reserved:
   occupied.set_secured(not occupied.secured)
@@ -321,6 +333,10 @@ func _leave_pilot() -> void:
  _update_view()
 
 func _update_view() -> void:
+ var next_station:=current_station()
+ if next_station!=_input_station:
+  input_source.reset_context()
+  _input_station=next_station
  crew.controls_enabled = controls_captured and not outside
  var occupied := current_station()
  interior_view.visible = (occupied == null or occupied != station) and not outside
@@ -334,12 +350,19 @@ func _update_view() -> void:
   pilot_camera.current = true
 
 func _active_device_changed(gamepad: bool) -> void:
+ if input_source!=null:
+  var keyboard: Array[String]=["brake_all","drift_cancel","flight_modifier","main_engine","forward","back","left","right","up","down","roll_left","roll_right","pitch_up","pitch_down","yaw_left","yaw_right"]
+  for action: StringName in InputMap.get_actions():
+   var old_source: bool=(String(action) in keyboard) if gamepad else String(action).begins_with("pad_")
+   if old_source and Input.is_action_pressed(action) and not String(action) in input_source.blocked_actions:
+    input_source.blocked_actions.append(String(action))
  if gamepad and not get_tree().paused:
   controls_captured = true
   crew.controls_enabled = not outside
   Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _pause_changed(_paused: bool) -> void:
+ input_source.reset_context()
  ship.command.clear()
  input_source.clear_mouse()
  controls_captured = true
@@ -359,7 +382,8 @@ func _physics_process(delta: float) -> void:
  sensors.sample(sensor_targets, ship.global_transform, ship.linear_velocity, ship.tick, delta)
  fire_control.update(sensors.selected())
  for display in tactical_displays:
-  display.queue_redraw()
+  display.source=input_source
+  if not display is CombatDisplay: display.queue_redraw()
  input_source.set_orbit_mode(outside and input_source.orbit_held())
  if station.occupied and controls_captured:
   PilotInput.sample(ship.command, input_source, delta)
@@ -374,6 +398,10 @@ func _sample_instruments(_tick: int) -> void:
  last_angular_velocity = state.angular_velocity
 
 func _process(delta: float) -> void:
+ if audio!=null:
+  audio.exterior=outside
+  var seat:=current_station()
+  audio.listener_position=seat.position+Vector3(0,0.7,0) if seat!=null else crew.camera.global_position
  if outside and input_source.using_gamepad and input_source.orbit_held():
   orbit.turn(input_source.camera_rate() * delta)
   orbit.zoom((Input.get_action_strength("pad_reverse") - Input.get_action_strength("pad_main")) * delta)
@@ -383,9 +411,13 @@ func _process(delta: float) -> void:
  var occupied := current_station()
  var nearest := nearest_station()
  if occupied == null and nearest != null:
-  status_hint.text = ("A / Cross: " if input_source.using_gamepad else "F: ") + nearest.role
+  status_hint.text = (input_source.button_label(JOY_BUTTON_A)+": " if input_source.using_gamepad else "F: ") + nearest.role
  elif occupied != null:
-  status_hint.text = "%s / %s | %s | %s" % [occupied.role, "SECURED" if occupied.secured else "UNSECURED",crew_safety.status(), "B/Circle: harness | LS: combat" if input_source.using_gamepad else "U: harness | J: combat"]
+  status_hint.text = "%s / %s | %s | %s" % [occupied.role, "SECURED" if occupied.secured else "UNSECURED",crew_safety.status(), (input_source.button_label(JOY_BUTTON_B)+": harness | "+input_source.button_label(JOY_BUTTON_LEFT_STICK)+": combat") if input_source.using_gamepad else "U: harness | J: combat"]
+ if station.occupied and not debug_panel.visible:
+  var data:=ShipTelemetry.capture(ship)
+  status_hint.text="MAIN THRUST %.2f MN (%d%% health) | BRAKE RCS %.2f MN | NET ACCELERATION %.2f m/s²"%[data.main_force_n/1e6,roundi(data.engine_health*100),data.brake_force_local.length()/1e6,data.acceleration_world.length()]
+  if data.reverse_force_n>100: status_hint.text+=" | REVERSE INPUT %.2f MN"%(data.reverse_force_n/1e6)
  var g_load := crew_member.proper_acceleration.length() / 9.80665
  exposure = lerpf(exposure, g_load, 1.0 - exp(-delta / maxf(g_effect_response_seconds, 0.01)))
  (stress_overlay.material as ShaderMaterial).set_shader_parameter("strength", clampf(exposure * g_effect_gain, 0.0, 0.65))
@@ -404,7 +436,7 @@ func _process(delta: float) -> void:
   hud.text += "\nBrake %.0f%% | ETA ~%.1f s to 0.05 m/s (free RCS)" % [fc.brake_progress * 100.0, fc.brake_eta]
  hud.text += "\n" + input_source.hints(station.occupied)
  if not station.occupied and crew.position.distance_to(station.position) < 3.0:
-  hud.text += "\n[A / Cross] Take pilot station" if input_source.using_gamepad else "\n[F] Take pilot station"
+  hud.text += "\n["+input_source.button_label(JOY_BUTTON_A)+"] Take pilot station" if input_source.using_gamepad else "\n[F] Take pilot station"
 
 func current_station() -> CrewStation:
  for candidate in stations:
@@ -436,6 +468,7 @@ func _build_station(room: Node3D, id: String, role: String, at: Vector3) -> void
  console.add_child(console.camera)
  var viewport := SubViewport.new()
  viewport.size = Vector2i(960,640)
+ viewport.world_2d=World2D.new()
  viewport.gui_disable_input = true
  viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
  add_child(viewport)

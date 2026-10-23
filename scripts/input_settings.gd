@@ -6,6 +6,9 @@ var mouse_flight_sensitivity: float = 1.0
 var deadzone: float = 0.15
 var sensitivity: float = 1.0
 var invert_y: bool = false
+# 0 auto, 1 PlayStation, 2 Xbox.
+var symbol_scheme: int = 0
+var audio_levels: Dictionary = {"Master":0.8,"Ship":0.75,"Warnings":0.65,"UI":0.5}
 var computer_layout: int = 0
 var brake_mode: int = 0
 var drift_button: int = JOY_BUTTON_X
@@ -16,6 +19,9 @@ func load_file(path: String = PATH) -> void:
  var config := ConfigFile.new()
  if config.load(path) != OK:
   return
+ symbol_scheme=clampi(int(config.get_value("controller","symbol_scheme",0)),0,2)
+ for bus: String in audio_levels:
+  audio_levels[bus]=clampf(float(config.get_value("audio",bus,audio_levels[bus])),0,1)
  mouse_flight_sensitivity = clampf(float(config.get_value("mouse", "flight_sensitivity", 1.0)), 0.25, 2.0)
  deadzone = clampf(float(config.get_value("controller", "deadzone", 0.15)), 0.05, 0.4)
  sensitivity = clampf(float(config.get_value("controller", "sensitivity", 1.0)), 0.25, 2.0)
@@ -49,6 +55,8 @@ func apply_advanced_bindings() -> void:
 
 func save_file(path: String = PATH) -> Error:
  var config := ConfigFile.new()
+ config.set_value("controller","symbol_scheme",symbol_scheme)
+ for bus: String in audio_levels: config.set_value("audio",bus,audio_levels[bus])
  config.set_value("mouse", "flight_sensitivity", mouse_flight_sensitivity)
  config.set_value("controller", "deadzone", deadzone)
  config.set_value("controller", "sensitivity", sensitivity)

@@ -51,7 +51,7 @@ func _ready() -> void:
  seed_field.max_value=2147483647
  rows.add_child(seed_field)
  var start:=Button.new()
- start.text="Start mission / A-Cross / Enter"
+ start.text="Start mission"
  start.pressed.connect(func() -> void:
   launch.call_deferred(get_tree(),mode.selected,difficulty.selected,int(seed_field.value),weapons.button_pressed,drone.button_pressed))
  rows.add_child(start)

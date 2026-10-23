@@ -1,6 +1,22 @@
-# DRIFT · Milestone 0.3.1 — Player Agency & Combat Balance
+# DRIFT · Milestone 0.3.2 — Flight Fixes, PlayStation UX & Sound
 
 Spielbarer **Godot-4.7-/GDScript-Desktop-Prototyp**: begehbares 36-m-Schiff, First Person, Pilotensitz, physikalischer Newtonscher 6DOF-Flug, Xbox-/PlayStation-Eingaben, abschaltbarer Flugcomputer und drei physisch montierte Cockpitinstrumente. Kontakt Alpha ergänzt ein echtes physikalisches Gefecht mit Gegner, Raketen und Abwehrdrohne. Drei besetzbare, sicherbare Crewstationen, beobachtungsbasierte Sensorik, simulierte Feuerleitung und zentrale Crew-Schubsicherheit. Sämtliche Geometrie entsteht aus Godot-Primitiven; keine externen Assets, Plugins oder Dienste.
+
+## Neu in 0.3.2
+
+PlayStation-first: Erkannte DualSense-/DualShock-/Sony-/PS4-/PS5-Geräte zeigen **✕, Kreis, Quadrat, Dreieck, L1/L2/L3, R1/R2/R3, Options und Share/Create**. Xbox erhält eigene Hinweise. Unter **Options → Audio / Controller symbols** lässt sich das Schema Auto / PlayStation / Xbox manuell auswählen. Die untenstehenden Vergleichstabellen dokumentieren weiterhin beide Controller. Laufende Konsolen zeigen nur das aktive Schema beziehungsweise Tastaturbefehle.
+
+Die Waffenstation priorisiert Ziel, Track/Lock, großen Sperrgrund, Munition und **NEXT**. Die Drohnenstation zeigt eine größere X-Z-Karte: blaues Dreieck = DRIFT, grünes Quadrat = eigene Drohne, grüner Kreis = tatsächliche 420-m-Geschützreichweite, orange Punkte = beobachtete feindliche Raketen. Der aktuelle Auftrag, Vorräte und passende Befehle stehen daneben. Kontakte außerhalb der 1,2-km-Kartenskala werden am Rand dargestellt; ein außerhalb liegender Drohnenradius wird nicht als örtlich korrekter Kreis ausgegeben.
+
+**MAIN THRUST / BRAKE RCS / NET ACCELERATION** erscheinen im Pilotenstatus. Zusätzlich werden Hauptantriebszustand und manuell angeforderter Rückwärtsschub angezeigt. Gesund liefert R2 weiterhin **2,4 MN / 20 m/s²**. Ein Treffer am Hauptantrieb hinterlässt **49 % / 1,176 MN / 9,8 m/s²**, auch ohne jede Bremskraft. Das war eine nachweisbare Ursache scheinbaren Gegenschubs; eine Bremsung nach tatsächlichem Loslassen ließ sich nicht reproduzieren. L2+R2 gleichzeitig ist dagegen ausdrücklich angeforderter Gegenschub: **20 − 12 = 8 m/s²**. Die Physik und Leistungsgrenzen wurden nicht erhöht. Beim Pause-/Stationswechsel müssen bereits gehaltene Flugkontrollen erst losgelassen beziehungsweise zentriert werden. Danach funktionieren neue Eingaben sofort; Gerätewechsel und Abziehen entfernen alte Controller-Aktionszustände.
+
+Zwölf originale **CC0-Sounds** ergänzen strukturellen Hauptantrieb, RCS-Impulse, Rack-Ausstoß, Treffer/Systemschäden, Sensorhinweise, annäherungsabhängigen Raketenalarm, Bedienung/Bestätigung, Drohnenmechanik und Sieg/Niederlage. Im Innenraum haben Körperschallquellen räumliche Positionen; Außenkameras hören keine gewöhnlichen Gefechtsgeräusche durch das Vakuum. Elektronische Warnungen und Bedienung bleiben als Bordkommunikation verfügbar. **Master / Ship / Warnings / UI** sind unabhängig regelbar und werden gespeichert. Die Hauptantriebslautstärke folgt der tatsächlich angewandten Leistung mit sanften Übergängen. Kein Controller-Rumble ist implementiert; die Startvibration ist akustisch gestaltet.
+
+**Options → Disengage / Mission abbrechen** beendet den Einsatz bewusst ohne Abschusswertung. Beidseitig fehlende offensive Restbewaffnung führt erst **nach allen aktiven Raketen plus 5 s Ruhefrist** zum **Unentschieden**. Die Drohnengeschütze sind reine Raketenabwehr und können keine Schiffe bekämpfen. Einseitig leere Racks, fehlender momentaner Lock oder geringe Entfernung allein beenden nichts. Kampfunfähigkeit durch Schäden bleibt Sieg/Niederlage; ein nicht mehr entscheidbares Gefecht bei noch vorhandenen, aber unerreichbaren Waffen lässt sich bewusst abbrechen.
+
+**Bekanntes Grafikproblem:** Unter dem hiesigen Mesa/llvmpipe-Software-Renderer fehlen bei laufenden Konsolenupdates vereinzelt Textteile, sichtbar unter anderem im Abschuss-Screenshot. Die Bilder sind unverändert; eine vollständige grafische Abnahme wird nicht behauptet. Ein echter GPU-/PlayStation-Test steht aus.
+
+Gerenderte 1280×720-Ansichten: [Sperrgrund](docs/screenshots/ps-weapons-blocked.png), [READY](docs/screenshots/ps-weapons-ready.png), [Abschuss](docs/screenshots/ps-launch.png), [Drohne](docs/screenshots/ps-drone.png), [Pilot](docs/screenshots/ps-pilot.png), [Pause](docs/screenshots/ps-pause.png), [Audio/Symbole](docs/screenshots/ps-audio-symbols.png), [Abbruch](docs/screenshots/ps-disengage.png). [Diagnose und Testergebnisse](docs/validation.md).
 
 ## Kontakt Alpha starten
 
@@ -51,7 +67,7 @@ Historische 0.3-Ansichten (FULL AUTO): [Raketenstation](docs/screenshots/contact
 
 EASY/NORMAL/HARD verändern Reaktionszeit, Sensorabtastung/-auflösung, Ausweichintensität und begrenzte Abwehrmunition. Rumpfwerte, Schaden, Schiffsmasse und Raketenphysik bleiben gleich. ALPHA besitzt eine eigene physisch eingesetzte Abwehrdrohne und reagiert über seine Sensorbeobachtungen auf anfliegende Raketen. Es gibt keine Trefferboni oder Positionskorrekturen.
 
-Pilotieren ist relevant: kurze Annäherung verkürzt die gegnerische Reaktionszeit; starke seitliche Beschleunigung kann einen Angriff vereiteln, erschwert aber auch die eigene Feuerlösung und kann das Gefecht außer Sensorreichweite führen. Munition, Rackwahl, Schussabstand und Drohnenposition sind echte Entscheidungen. Ein Patt bei erschöpften Magazinen bleibt möglich.
+Pilotieren ist relevant: kurze Annäherung verkürzt die gegnerische Reaktionszeit; starke seitliche Beschleunigung kann einen Angriff vereiteln, erschwert aber auch die eigene Feuerlösung und kann das Gefecht außer Sensorreichweite führen. Munition, Rackwahl, Schussabstand und Drohnenposition sind echte Entscheidungen. Beidseitig erschöpfte Angriffswaffen werden seit 0.3.2 nach Ende der letzten Rakete als Unentschieden aufgelöst.
 
 [Balancing-Bericht mit 26 reproduzierbaren Gefechten](docs/balance-0.3.1.md), [Messdaten](docs/balance-0.3.1.json). Sechs neue gerenderte Ansichten: [Missionsmenü](docs/screenshots/agency-mission-menu.png), [Rollenfreigaben](docs/screenshots/agency-assisted-consent.png), [READY](docs/screenshots/agency-weapon-ready.png), [bewusster Abschuss](docs/screenshots/agency-missile-ordered.png), [ESCORT](docs/screenshots/agency-drone-escort.png), [DEFEND](docs/screenshots/agency-drone-defend.png).
 
@@ -204,7 +220,9 @@ Der Innenraum bleibt eine separate **lokale World3D** mit vereinfachter künstli
 - `test_arena.gd`, `exterior_orbit.gd`: statische Referenzen und unabhängige Kameradarstellung.
 - `pause_menu.gd`: Controller-/Maus-/Tastatur-Menüs.
 - `scripts/instruments/`: typisiertes `ShipTelemetry`-Snapshot, gemeinsame Display-Zeichenbasis, drei getrennte Instrumente und wiederverwendbare Cockpit-Montage.
-- `tests/`: neun Suiten mit **416 Prüfungen** (364 bestehende und 52 neue Agency-/Balance-Checks), dazu optionale Balance- und Render-Fixtures.
+- `scripts/audio/`, `assets/audio/`: beobachtungsbasiertes, szenengebundenes Audio und selbst erzeugte CC0-WAVs.
+- `controller_labels.gd`: zentrale dynamische PS-/Xbox-Beschriftung.
+- `tests/`: zehn Suiten mit **475 Prüfungen** (416 unveränderte bisherige und 59 neue Flug-/PS-/Audio-/Missionsregressionen) und optionale Mix-/Render-Fixtures.
 
 ```bash
 # Linux x86_64; benötigt curl, unzip und sha512sum:
@@ -212,13 +230,13 @@ Der Innenraum bleibt eine separate **lokale World3D** mit vereinfachter künstli
 GODOT_BIN=/workspace/tools/godot-4.7/Godot_v4.7-stable_linux.x86_64 ./tools/check.sh
 ```
 
-Der Bootstrap installiert die offizielle, SHA512-geprüfte 4.7-Version außerhalb des Checkouts. Der Prüflauf importiert das Projekt, startet die Hauptszene und führt alle Suiten mit echter Godot-Physik aus. Die neue Manöversuite nutzt `--fixed-fps 60` für reproduzierbare, beschleunigt ausgeführte 60-Hz-Simulationsschritte; gemessene Zeiten sind **Simulationszeit**.
+Der Bootstrap installiert die offizielle, SHA512-geprüfte 4.7-Version außerhalb des Checkouts. Der Prüflauf verwendet ein frisches temporäres Benutzerverzeichnis, importiert das Projekt, startet die Hauptszene und führt alle Suiten mit echter Godot-Physik aus. Skriptfehler führen auch dann zum Fehlschlag, wenn Godot selbst Exitcode 0 liefert; jeder Aufruf hat ein 240-s-Zeitlimit. In Headless-Simulationen werden Audioereignisse und Pools geprüft, aber keine Echtzeit-Playbacks gestartet. Der optionale echte Mixer-Test aktiviert sie ausdrücklich: `godot --headless --audio-driver Dummy --path . --script res://tests/audio_mix_capture.gd -- --audio-headless`. Er schreibt reale Innenraum-/Vakuum-Mischungen nach `/tmp/drift032-*.wav`. `python3 tools/check_audio.py` prüft die ausgelieferten PCM-Dateien, `python3 tools/generate_audio.py` erzeugt sie reproduzierbar neu. Die neue Manöversuite nutzt `--fixed-fps 60` für reproduzierbare, beschleunigt ausgeführte 60-Hz-Simulationsschritte; gemessene Zeiten sind **Simulationszeit**.
 
 [Messwerte und Testergebnisse](docs/validation.md), [Architektur und spätere Schnittstellen](docs/architecture.md).
 
-**Kein interaktiver Desktop- oder Controller-Hardwaretest für 0.3.1 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte C-Halten/Loslassen, Rückwärtsschub, Retrograde-Abbruch, Instrumente und umbelegte Controller-Kombinationen auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Kontakt Alpha ergänzt reale Waffen/Drohne und einen einfachen KI-Gegner; Netzwerk, vollständige Replays und Kampagne bleiben außerhalb des Scopes.
+**Kein interaktiver Desktop-, Hör- oder PlayStation-/Xbox-Hardwaretest für 0.3.2 wurde hier durchgeführt.** Virtuelle Render-Screenshots wurden geprüft; der Nutzer hat zuvor einen erfolgreichen Desktop-Test von 0.1.2 gemeldet. Für diese Version bitte C-Halten/Loslassen, Rückwärtsschub, Retrograde-Abbruch, Instrumente und umbelegte Controller-Kombinationen auf echter Hardware prüfen. Mehrere Controller werden noch nicht getrennten Spielern zugeordnet. Kontakt Alpha ergänzt reale Waffen/Drohne und einen einfachen KI-Gegner; Netzwerk, vollständige Replays und Kampagne bleiben außerhalb des Scopes.
 
-Nächste empfohlene Aufgabe: Desktop-/Controller-Abnahme der Cockpit-Lesbarkeit bei unterschiedlicher Auflösung und Drift, danach gerichtete Crew-Beschleunigungseffekte und umschaltbare lokale Gravitation/Zero-G.
+Nächste empfohlene Aufgabe: echte PlayStation-Abnahme von Trigger-Neutralstellung, Stationswechseln, Warnlautstärke und neuem Konsolenablauf; danach Sensor-Sichtlinien und begrenzte Abwehr-Turmschwenkung.
 
 ## Grenzen und nächste Schritte (0.2)
 

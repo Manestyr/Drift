@@ -2,6 +2,12 @@ class_name PauseMenu
 extends CanvasLayer
 
 signal pause_changed(paused: bool)
+signal disengage_requested
+signal audio_level_changed(bus: String, value: float)
+var binding_choices: Array[Dictionary] = []
+var _last_schema: int = -1
+var settings_panel: PanelContainer
+var disengage_button: Button
 signal reset_requested
 var save_settings_on_close: bool = true
 signal camera_requested
@@ -24,11 +30,17 @@ func _ready() -> void:
  layer = 10
  panel = PanelContainer.new()
  panel.position = Vector2(340, 45)
- panel.custom_minimum_size = Vector2(600, 410)
+ panel.custom_minimum_size = Vector2(600, 630)
+ panel.size=Vector2(600,630)
  add_child(panel)
+ var scroll:=ScrollContainer.new()
+ scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
+ scroll.follow_focus=true
+ panel.add_child(scroll)
  var rows := VBoxContainer.new()
+ rows.size_flags_horizontal=Control.SIZE_EXPAND_FILL
  rows.add_theme_constant_override("separation", 8)
- panel.add_child(rows)
+ scroll.add_child(rows)
  var title := Label.new()
  title.text = "PAUSED — Input settings"
  rows.add_child(title)
@@ -63,6 +75,7 @@ func _ready() -> void:
  advanced_button.text = "Advanced flight / Controller bindings"
  advanced_button.pressed.connect(func() -> void:
   panel.hide()
+  _refresh_binding_labels()
   advanced_panel.show()
   advanced_panel.find_next_valid_focus().grab_focus())
  rows.add_child(advanced_button)
@@ -78,6 +91,21 @@ func _ready() -> void:
   set_paused(false)
   get_tree().change_scene_to_file("res://scenes/main.tscn"))
  rows.add_child(free_button)
+ var settings_button:=Button.new()
+ settings_button.text="Audio / Controller symbols"
+ settings_button.pressed.connect(func() -> void:
+  panel.hide()
+  settings_panel.show()
+  settings_panel.find_next_valid_focus().grab_focus())
+ rows.add_child(settings_button)
+ disengage_button=Button.new()
+ disengage_button.text="Disengage / Mission abbrechen"
+ disengage_button.pressed.connect(func() -> void:
+  set_paused(false)
+  disengage_requested.emit())
+ rows.add_child(disengage_button)
+ disengage_button.hide()
+ _build_settings_panel()
  _build_advanced_panel()
  _build_computer_panel()
  status = Label.new()
@@ -112,8 +140,9 @@ func _slider(rows: VBoxContainer, title: String, minimum: float, maximum: float,
 func _input(event: InputEvent) -> void:
  if event.is_action_pressed("pause") or (get_tree().paused and event.is_action_pressed("ui_cancel")):
   source.observe(event)
-  if (computer_panel.visible or advanced_panel.visible) and event.is_action_pressed("ui_cancel"):
+  if (computer_panel.visible or advanced_panel.visible or settings_panel.visible) and event.is_action_pressed("ui_cancel"):
    advanced_panel.hide()
+   settings_panel.hide()
    computer_panel.hide()
    panel.show()
    resume.grab_focus()
@@ -124,6 +153,7 @@ func _input(event: InputEvent) -> void:
 func set_paused(value: bool) -> void:
  get_tree().paused = value
  panel.visible = value
+ settings_panel.hide()
  computer_panel.hide()
  advanced_panel.hide()
  Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if value else Input.MOUSE_MODE_CAPTURED
@@ -169,7 +199,7 @@ func _build_computer_panel() -> void:
  nav_toggle.toggled.connect(func(value: bool) -> void: instruments.navigation.inertial_frame = value)
  rows.add_child(nav_toggle)
  var info := Label.new()
- info.text = "Hold brake button to brake. Manual thrust wins on its axis.\nMouse wheel: exterior zoom. Hold RS click: orbit/trigger zoom."
+ info.text = "Hold brake button to brake. Manual thrust wins on its axis.\nMouse wheel: exterior zoom. Hold camera modifier: orbit/trigger zoom."
  rows.add_child(info)
  var back := Button.new()
  back.text = "Back"
@@ -224,11 +254,12 @@ func _build_advanced_panel() -> void:
  title.text = "ADVANCED FLIGHT — held drift / retrograde"
  rows.add_child(title)
  var info := Label.new()
- info.text = "C: hold Drift Cancel | B: retrograde (no auto burn)\nBindings override overlapping gameplay buttons while active."
+ info.text = "Hold Drift Cancel / press Retrograde (no auto burn)\nBindings below override overlapping gameplay buttons while active."
  rows.add_child(info)
  var indices: Array[int] = []
  var names: Array[String] = []
- var labels := ["A / Cross", "B / Circle", "X / Square", "Y / Triangle", "Back / Share", "Guide", "Start", "LS click", "RS click", "LB / L1", "RB / R1", "D-pad Up", "D-pad Down", "D-pad Left", "D-pad Right", "Misc", "Paddle 1", "Paddle 2", "Paddle 3", "Paddle 4", "Touchpad"]
+ var labels: Array[String]=[]
+ for i in range(JOY_BUTTON_MAX): labels.append(source.button_label(i))
  for i in range(JOY_BUTTON_MAX):
   if i in [JOY_BUTTON_GUIDE, JOY_BUTTON_START]:
    continue
@@ -239,6 +270,7 @@ func _build_advanced_panel() -> void:
  var modifier_indices: Array = [-1] + indices
  var modifier := _choice(rows, "Optional chord modifier (must also be held)", modifier_names, modifier_indices.find(source.settings.drift_modifier), func(_value: int) -> void: pass)
  var retro := _choice(rows, "Retrograde command button", names, indices.find(source.settings.retrograde_button), func(_value: int) -> void: pass)
+ binding_choices=[{"choice":drift,"indices":indices},{"choice":modifier,"indices":modifier_indices},{"choice":retro,"indices":indices}]
  drift.item_selected.connect(func(value: int) -> void:
   if indices[value] == source.settings.retrograde_button:
    info.text = "Choose different Drift and Retrograde buttons."
@@ -261,11 +293,11 @@ func _build_advanced_panel() -> void:
    source.settings.retrograde_button = indices[value]
    source.settings.apply_advanced_bindings())
  var camera_button := Button.new()
- camera_button.text = "Toggle exterior camera (fallback after rebinding Y)"
+ camera_button.text = "Toggle exterior camera (binding fallback)"
  camera_button.pressed.connect(func() -> void: camera_requested.emit(); set_paused(false))
  rows.add_child(camera_button)
  var leave := Button.new()
- leave.text = "Leave pilot seat (also available with rebound A)"
+ leave.text = "Leave pilot seat (binding fallback)"
  leave.pressed.connect(func() -> void: leave_station_requested.emit(); set_paused(false))
  rows.add_child(leave)
  var back := Button.new()
@@ -276,3 +308,46 @@ func _build_advanced_panel() -> void:
   resume.grab_focus())
  rows.add_child(back)
  advanced_panel.hide()
+
+func _build_settings_panel() -> void:
+ settings_panel=PanelContainer.new()
+ settings_panel.position=Vector2(310,80)
+ settings_panel.custom_minimum_size=Vector2(660,540)
+ add_child(settings_panel)
+ var rows:=VBoxContainer.new()
+ rows.add_theme_constant_override("separation",12)
+ settings_panel.add_child(rows)
+ _choice(rows,"Controller symbols (Auto uses detected device name)",["Auto","PlayStation","Xbox"],source.settings.symbol_scheme,func(value: int) -> void:
+  source.settings.symbol_scheme=value)
+ for bus: String in ["Master","Ship","Warnings","UI"]:
+  _audio_slider(rows,bus)
+ var info:=Label.new()
+ info.text="Ship: interior structure only; exterior is vacuum.\nWarnings/UI: onboard electronics, independently adjustable."
+ rows.add_child(info)
+ var back:=Button.new()
+ back.text="Back"
+ back.pressed.connect(func() -> void:
+  settings_panel.hide()
+  panel.show()
+  resume.grab_focus())
+ rows.add_child(back)
+ settings_panel.hide()
+
+func _audio_slider(rows: VBoxContainer, bus: String) -> void:
+ _slider(rows,bus+" volume",0,1,0.05,float(source.settings.audio_levels[bus]),func(value: float) -> void:
+  source.settings.audio_levels[bus]=value
+  audio_level_changed.emit(bus,value))
+
+func _refresh_binding_labels() -> void:
+ if _last_schema==source.symbol_scheme(): return
+ _last_schema=source.symbol_scheme()
+ for binding in binding_choices:
+  for i in binding.indices.size():
+   binding.choice.set_item_text(i,"None" if binding.indices[i]<0 else source.button_label(binding.indices[i]))
+
+func _process(_dt: float) -> void:
+ if advanced_panel.visible: _refresh_binding_labels()
+ if not source.using_gamepad:
+  status.text="Arrows: navigate | Enter: confirm | Esc: back | P: resume"
+ if status!=null and source.using_gamepad:
+  status.text="%s: navigate | %s: confirm | %s: back | %s: resume"%["Steuerkreuz" if source.symbol_scheme()==1 else "D-pad",source.button_label(JOY_BUTTON_A),source.button_label(JOY_BUTTON_B),source.button_label(JOY_BUTTON_START)]

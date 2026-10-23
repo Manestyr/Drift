@@ -5,12 +5,12 @@ func _init() -> void:
  title = "02 / PROPULSION & RCS"
 
 func draw_content() -> void:
- text_at(Vector2(20, 81), "MAIN %.2f" % (telemetry.main_limit / 1000000.0), ORANGE, 20)
+ text_at(Vector2(20, 81), "MAIN %.0f%%" % (telemetry.engine_health*100), ORANGE, 20)
  draw_rect(Rect2(138, 61, 252, 22), DIM.darkened(0.65))
  draw_rect(Rect2(138, 61, 252 * telemetry.main_fraction, 22), ORANGE)
  text_at(Vector2(402, 81), "%3.0f%%" % (telemetry.main_fraction * 100), ORANGE)
- text_at(Vector2(20, 119), "%.2f m/s²    /    %.2f g" % [telemetry.acceleration_world.length(), telemetry.acceleration_world.length() / 9.80665], GREEN, 28)
- text_at(Vector2(20, 155), "RCS LIMIT MN    - / +", DIM, 22)
+ text_at(Vector2(20, 119), "NET %.2f m/s² / %.2f g" % [telemetry.acceleration_world.length(), telemetry.acceleration_world.length() / 9.80665], GREEN, 28)
+ text_at(Vector2(20, 155), "BRAKE RCS %.2f MN" % (telemetry.brake_force_local.length()/1e6), GREEN, 22)
  signed_bar(182, "X %.2f/%.2f" % [telemetry.negative_limits.x/1e6, telemetry.positive_limits.x/1e6], telemetry.rcs_translation.x, telemetry.auto_translation.x)
  signed_bar(217, "Y %.2f/%.2f" % [telemetry.negative_limits.y/1e6, telemetry.positive_limits.y/1e6], telemetry.rcs_translation.y, telemetry.auto_translation.y)
  signed_bar(252, "Z %.2f/%.2f" % [telemetry.negative_limits.z/1e6, telemetry.positive_limits.z/1e6], telemetry.rcs_translation.z, telemetry.auto_translation.z)

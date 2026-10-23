@@ -10,6 +10,8 @@ var active_device: int = -1
 var mouse_steer: Vector2 = Vector2.ZERO
 var orbiting: bool = false
 var _wait_pad_neutral: bool = false
+var blocked_actions: Array[String] = []
+var controller_name: String = ""
 
 func _ready() -> void:
  process_mode = Node.PROCESS_MODE_ALWAYS
@@ -26,10 +28,10 @@ func observe(event: InputEvent) -> void:
   if event.axis == JOY_AXIS_TRIGGER_LEFT or event.axis == JOY_AXIS_TRIGGER_RIGHT:
    threshold = 0.05
   if event.axis_value > threshold + 0.000001 or (event.axis <= JOY_AXIS_RIGHT_Y and event.axis_value < -threshold - 0.000001):
-   active_device = event.device
+   _adopt_controller(event)
    _set_device(true)
  elif event is InputEventJoypadButton and event.pressed:
-  active_device = event.device
+  _adopt_controller(event)
   _set_device(true)
  elif event is InputEventKey and event.pressed and not event.echo:
   _set_device(false)
@@ -37,6 +39,26 @@ func observe(event: InputEvent) -> void:
   _set_device(false)
  elif event is InputEventMouseMotion and event.relative.length() > 2.0:
   _set_device(false)
+
+func _adopt_controller(event: InputEvent) -> void:
+ if active_device>=0 and active_device!=event.device:
+  _release_pad_actions()
+  # Reapply only this fresh event, via the existing Input Map. No event replay
+  # (which would double-fire station/weapon button handlers).
+  for action: StringName in InputMap.get_actions():
+   if event.is_action(action):
+    var strength:=event.get_action_strength(action)
+    if strength>0: Input.action_press(action,strength)
+ controller_name=Input.get_joy_name(event.device)
+ active_device=event.device
+
+func _release_pad_actions() -> void:
+ for action: StringName in InputMap.get_actions():
+  for event in InputMap.action_get_events(action):
+   if event is InputEventJoypadMotion or event is InputEventJoypadButton:
+    Input.action_release(action)
+    break
+ clear_mouse()
 
 func _set_device(gamepad: bool) -> void:
  if using_gamepad != gamepad:
@@ -46,6 +68,7 @@ func _set_device(gamepad: bool) -> void:
 
 func _connection_changed(device: int, connected: bool) -> void:
  if not connected and device == active_device:
+  _release_pad_actions()
   active_device = -1
   _set_device(false)
 
@@ -66,11 +89,14 @@ func stick(prefix: String) -> Vector2:
  return filter_stick(raw, settings.deadzone)
 
 func movement() -> Vector2:
+ _clear_released()
  if using_gamepad:
-  return stick("pad_left")
- return Input.get_vector("left", "right", "forward", "back")
+  return Vector2.ZERO if blocked_actions.any(func(a: String) -> bool: return a.begins_with("pad_left_")) else stick("pad_left")
+ return Vector2(flight_strength("right")-flight_strength("left"),flight_strength("back")-flight_strength("forward")).limit_length()
 
 func camera_rate() -> Vector2:
+ _clear_released()
+ if blocked_actions.any(func(a: String) -> bool: return a.begins_with("pad_right_")): return Vector2.ZERO
  if not using_gamepad:
   return Vector2.ZERO
  var value := stick("pad_right") * settings.sensitivity * 2.5
@@ -108,7 +134,7 @@ func pad_button_consumed(index: int) -> bool:
  return drift_held() and index in [settings.drift_button, settings.drift_modifier]
 
 func orbit_held() -> bool:
- return Input.is_action_pressed("pad_orbit") and not pad_button_consumed(JOY_BUTTON_RIGHT_STICK)
+ return not "pad_orbit" in blocked_actions and Input.is_action_pressed("pad_orbit") and not pad_button_consumed(JOY_BUTTON_RIGHT_STICK)
 
 func advanced_consumes(event: InputEvent) -> bool:
  if not event is InputEventJoypadButton:
@@ -119,9 +145,44 @@ func controller_brake_held() -> bool:
  var index := JOY_BUTTON_DPAD_DOWN if settings.computer_layout == 0 else JOY_BUTTON_DPAD_UP
  return Input.is_action_pressed("pad_fc_down" if settings.computer_layout == 0 else "pad_fc_up") and not pad_button_consumed(index)
 
+func symbol_scheme() -> int:
+ return settings.symbol_scheme if settings.symbol_scheme!=0 else ControllerLabels.detect(controller_name)
+
+func button_label(index: int) -> String:
+ return ControllerLabels.button(index,symbol_scheme())
+
+func reset_context() -> void:
+ clear_mouse()
+ # Quarantine controls already held at a context boundary, until real neutral.
+ # Never release Godot's global actions: that would lose physical release state.
+ for action: StringName in InputMap.get_actions():
+  if String(action).begins_with("pad_") or action in ["brake_all","drift_cancel","flight_modifier","main_engine","forward","back","left","right","up","down","roll_left","roll_right","pitch_up","pitch_down","yaw_left","yaw_right"]:
+   if Input.is_action_pressed(action) and not String(action) in blocked_actions:
+    blocked_actions.append(String(action))
+
+func _clear_released() -> void:
+ for action in blocked_actions.duplicate():
+  if not Input.is_action_pressed(action): blocked_actions.erase(action)
+
+func flight_strength(action: String) -> float:
+ return 0.0 if action in blocked_actions else Input.get_action_strength(action)
+
 func sample_flight(command: FlightCommand, delta: float = 1.0 / 60.0) -> void:
+ _clear_released()
  if not using_gamepad:
   PilotInput.sample_keyboard(command)
+  if "forward" in blocked_actions or "back" in blocked_actions: command.translation.z=0
+  if "left" in blocked_actions or "right" in blocked_actions: command.translation.x=0
+  if "up" in blocked_actions or "down" in blocked_actions: command.translation.y=0
+  if "pitch_up" in blocked_actions or "pitch_down" in blocked_actions: command.rotation.x=0
+  if "yaw_left" in blocked_actions or "yaw_right" in blocked_actions: command.rotation.y=0
+  if "roll_left" in blocked_actions or "roll_right" in blocked_actions: command.rotation.z=0
+  if "brake_all" in blocked_actions: command.brake_all=false
+  if "drift_cancel" in blocked_actions: command.drift_cancel=false
+  if "flight_modifier" in blocked_actions:
+   command.brake_axes=Vector3.ZERO
+   command.brake_roll=false
+  if "main_engine" in blocked_actions: command.main_engine=0
   if not Input.is_action_pressed("flight_modifier"):
    command.rotation += Vector3(-mouse_steer.y, -mouse_steer.x, 0)
    command.rotation = command.rotation.limit_length()
@@ -130,21 +191,21 @@ func sample_flight(command: FlightCommand, delta: float = 1.0 / 60.0) -> void:
   mouse_steer = mouse_steer.move_toward(Vector2.ZERO, delta * 3.0)
   return
  command.clear()
- var left := stick("pad_left") * settings.sensitivity
- if _wait_pad_neutral and stick("pad_right") == Vector2.ZERO and Input.get_action_strength("pad_main") == 0 and Input.get_action_strength("pad_reverse") == 0:
+ var left := Vector2.ZERO if blocked_actions.any(func(a: String) -> bool: return a.begins_with("pad_left_")) else stick("pad_left") * settings.sensitivity
+ if _wait_pad_neutral and stick("pad_right") == Vector2.ZERO and flight_strength("pad_main") == 0 and flight_strength("pad_reverse") == 0:
   _wait_pad_neutral = false
  var camera_controls := orbiting or _wait_pad_neutral
- var right := Vector2.ZERO if camera_controls else stick("pad_right")
+ var right := Vector2.ZERO if camera_controls or blocked_actions.any(func(a: String) -> bool: return a.begins_with("pad_right_")) else stick("pad_right")
  var pitch := -left.y
  if settings.invert_y:
   pitch = -pitch
- var roll_left := 0.0 if pad_button_consumed(JOY_BUTTON_LEFT_SHOULDER) else Input.get_action_strength("pad_roll_left")
- var roll_right := 0.0 if pad_button_consumed(JOY_BUTTON_RIGHT_SHOULDER) else Input.get_action_strength("pad_roll_right")
+ var roll_left := 0.0 if pad_button_consumed(JOY_BUTTON_LEFT_SHOULDER) else flight_strength("pad_roll_left")
+ var roll_right := 0.0 if pad_button_consumed(JOY_BUTTON_RIGHT_SHOULDER) else flight_strength("pad_roll_right")
  command.rotation = Vector3(pitch, -left.x, roll_left - roll_right).limit_length()
- command.translation = Vector3(right.x, -right.y, 0.0 if camera_controls else Input.get_action_strength("pad_reverse")).limit_length()
- command.main_engine = 0.0 if camera_controls else Input.get_action_strength("pad_main")
- command.drift_cancel = drift_held()
- if controller_brake_held():
+ command.translation = Vector3(right.x, -right.y, 0.0 if camera_controls else flight_strength("pad_reverse")).limit_length()
+ command.main_engine = 0.0 if camera_controls else flight_strength("pad_main")
+ command.drift_cancel = drift_held() and not "pad_drift_cancel" in blocked_actions and not "pad_drift_modifier" in blocked_actions
+ if controller_brake_held() and not ("pad_fc_down" in blocked_actions or "pad_fc_up" in blocked_actions):
   match settings.brake_mode:
    0: command.brake_all = true
    1: command.brake_axes.z = 1.0
@@ -153,6 +214,9 @@ func sample_flight(command: FlightCommand, delta: float = 1.0 / 60.0) -> void:
    4: command.brake_roll = true
 
 func hints(piloting: bool) -> String:
+ return ControllerLabels.adapt(_hints(piloting),symbol_scheme()) if using_gamepad else _hints(piloting)
+
+func _hints(piloting: bool) -> String:
  if using_gamepad:
   if piloting:
    var layout_hint := "D-pad Down: brake / Up: stabilize / Left: hold / Right: grid"
